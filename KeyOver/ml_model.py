@@ -73,7 +73,8 @@ def prepare_activity_features(df: pd.DataFrame) -> pd.DataFrame:
             action_id=int(row["action_id"]),
             dt=row["logged_at"].to_pydatetime()
         )
-        anomalies.append(1 if messages else 0)
+        hard_anomaly = any(msg.startswith("Anomalía:") for msg in messages)
+        anomalies.append(1 if hard_anomaly else 0)
 
     df["anomaly"] = anomalies
     return df

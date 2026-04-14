@@ -3,6 +3,9 @@ from datetime import datetime, timedelta, time
 import psycopg2
 from psycopg2.extras import execute_batch
 
+# =========================
+# CONFIGURACIÓN DE LA BASE DE DATOS
+# =========================
 DB_CONFIG = {
     "host": "localhost",
     "port": 5432,
@@ -11,43 +14,76 @@ DB_CONFIG = {
     "password": ""
 }
 
-NUM_LOGINS = 10_000
-NUM_ACTIVITIES = 10_000
-ANOMALY_RATE = 0.05  # 5% anomalías
+# =========================
+# CANTIDAD DE DATOS A GENERAR
+# =========================
+NUM_LOGINS = 100_000
+NUM_ACTIVITIES = 100_000
 
-# Reglas actuales de tu proyecto
+# =========================
+# PORCENTAJES DE ANOMALÍAS
+# =========================
+# Los separamos para tener más control.
+# Con estos valores, el resultado real suele quedar
+# aproximadamente en el rango 7%-10% si el resto está bien alineado.
+LOGIN_ANOMALY_RATE = 0.05
+ACTIVITY_ANOMALY_RATE = 0.05
+
+# =========================
+# PROBABILIDAD DE LOGIN CORRECTO
+# =========================
+LOGIN_SUCCESS_RATE = 0.92
+
+# =========================
+# REGLAS ALINEADAS CON rules.py
+# =========================
 USER_PROFILES = {
     1: {  # Matteo
         "name": "Matteo",
-        "login_window": (9, 12),
+        "schedule_start": time(9, 0),
+        "schedule_end": time(13, 0),
+        "tolerance_minutes": 15,
         "allowed_elements": [1, 2],
+        "allowed_entities": [1],
         "allowed_actions": [1000000, 1000004, 1000005]  # Visualize, Copy, Share
     },
     2: {  # Diego
         "name": "Diego",
-        "login_window": (12, 15),
+        "schedule_start": time(9, 0),
+        "schedule_end": time(17, 0),
+        "tolerance_minutes": 20,
         "allowed_elements": [3],
-        "allowed_actions": [1000000, 1000004, 1000005]
+        "allowed_entities": [1, 2],
+        "allowed_actions": [1000000, 1000001, 1000002, 1000005]  # Visualize, Create, Edit, Share
     },
     3: {  # Emilio
         "name": "Emilio",
-        "login_window": (15, 18),
-        "allowed_elements": [4, 1, 5, 6],
-        "allowed_actions": [1000000, 1000004, 1000005]
+        "schedule_start": time(10, 0),
+        "schedule_end": time(18, 0),
+        "tolerance_minutes": 20,
+        "allowed_elements": [1, 4, 5, 6],
+        "allowed_entities": [1, 3],
+        "allowed_actions": [1000000, 1000002, 1000004, 1000005]  # Visualize, Edit, Copy, Share
     }
 }
 
 ALL_ELEMENTS = [1, 2, 3, 4, 5, 6]
+ALL_ENTITIES = [1, 2, 3]
 ALL_ACTIONS = [1000000, 1000001, 1000002, 1000003, 1000004, 1000005]
-ENTITY_ID = 1
 
 
 def get_connection():
+    """
+    Abre una conexión con PostgreSQL.
+    """
     return psycopg2.connect(**DB_CONFIG)
 
 
 def random_datetime_last_days(days_back=120):
-    """Genera una fecha aleatoria dentro de los últimos X días."""
+    """
+    Genera una fecha aleatoria dentro de los últimos X días.
+    Puede caer en cualquier día de la semana.
+    """
     now = datetime.now()
     start = now - timedelta(days=days_back)
     delta = now - start
@@ -55,68 +91,156 @@ def random_datetime_last_days(days_back=120):
     return start + timedelta(seconds=random_seconds)
 
 
-def random_datetime_in_window(base_date, start_hour, end_hour):
-    """Genera una fecha en una franja horaria concreta."""
-    hour = random.randint(start_hour, max(start_hour, end_hour - 1))
-    minute = random.randint(0, 59)
+def random_weekday_datetime_last_days(days_back=120):
+    """
+    Genera una fecha aleatoria en los últimos X días,
+    asegurando que caiga entre lunes y viernes.
+    """
+    while True:
+        dt = random_datetime_last_days(days_back)
+        if dt.weekday() < 5:
+            return dt
+
+
+def random_datetime_in_schedule(base_date: datetime, start_t: time, end_t: time):
+    """
+    Genera una fecha aleatoria dentro del horario principal del usuario.
+    No incluye tolerancia: es un caso claramente normal.
+    """
+    start_minutes = start_t.hour * 60 + start_t.minute
+    end_minutes = end_t.hour * 60 + end_t.minute
+
+    current_minutes = random.randint(start_minutes, max(start_minutes, end_minutes - 1))
+    hour = current_minutes // 60
+    minute = current_minutes % 60
     second = random.randint(0, 59)
+
     return datetime.combine(base_date.date(), time(hour, minute, second))
 
 
-def random_datetime_outside_window(base_date, start_hour, end_hour):
-    """Genera una fecha fuera de la franja horaria permitida."""
-    possible_hours = [h for h in range(24) if h < start_hour or h >= end_hour]
-    hour = random.choice(possible_hours)
-    minute = random.randint(0, 59)
+def random_datetime_outside_tolerance(base_date: datetime, start_t: time, end_t: time, tolerance_minutes: int):
+    """
+    Genera una fecha claramente fuera del horario permitido,
+    incluyendo la tolerancia.
+    """
+    start_minutes = start_t.hour * 60 + start_t.minute
+    end_minutes = end_t.hour * 60 + end_t.minute
+
+    allowed_start = start_minutes - tolerance_minutes
+    allowed_end = end_minutes + tolerance_minutes
+
+    possible_minutes = [
+        m for m in range(24 * 60)
+        if m < allowed_start or m > allowed_end
+    ]
+
+    selected_minutes = random.choice(possible_minutes)
+    hour = selected_minutes // 60
+    minute = selected_minutes % 60
     second = random.randint(0, 59)
+
     return datetime.combine(base_date.date(), time(hour, minute, second))
+
+
+def random_weekend_datetime_last_days(days_back=120):
+    """
+    Genera una fecha aleatoria en fin de semana.
+    """
+    while True:
+        dt = random_datetime_last_days(days_back)
+        if dt.weekday() >= 5:
+            return dt
+
+
+def build_normal_login_timestamp(profile):
+    """
+    Genera un timestamp de login normal:
+    - entre semana
+    - dentro del horario principal
+    """
+    base_dt = random_weekday_datetime_last_days(120)
+    return random_datetime_in_schedule(
+        base_dt,
+        profile["schedule_start"],
+        profile["schedule_end"]
+    )
+
+
+def build_anomalous_login_timestamp(profile):
+    """
+    Genera un timestamp de login anómalo.
+    Tipos posibles:
+    - fin de semana
+    - muy fuera de horario
+    """
+    anomaly_type = random.choice(["weekend", "outside_schedule"])
+
+    if anomaly_type == "weekend":
+        base_dt = random_weekend_datetime_last_days(120)
+        return random_datetime_outside_tolerance(
+            base_dt,
+            profile["schedule_start"],
+            profile["schedule_end"],
+            profile["tolerance_minutes"]
+        )
+
+    base_dt = random_weekday_datetime_last_days(120)
+    return random_datetime_outside_tolerance(
+        base_dt,
+        profile["schedule_start"],
+        profile["schedule_end"],
+        profile["tolerance_minutes"]
+    )
 
 
 def generate_login_rows(num_logins):
     """
     Genera filas sintéticas para login_log.
+
     Devuelve:
-    - login_rows: datos para insertar en login_log
-    - successful_sessions: sesiones válidas para poder generar activity_log realista
+    - login_rows: lista de registros para insertar en login_log
+    - successful_sessions_normal: sesiones correctas y normales
+    - successful_sessions_all: todas las sesiones correctas
     """
     login_rows = []
-    successful_sessions = []
+    successful_sessions_normal = []
+    successful_sessions_all = []
 
     user_ids = list(USER_PROFILES.keys())
-    user_weights = [0.45, 0.30, 0.25]  # Matteo más frecuente, luego Diego, luego Emilio
+    user_weights = [0.45, 0.30, 0.25]
 
     for i in range(num_logins):
         user_id = random.choices(user_ids, weights=user_weights, k=1)[0]
         profile = USER_PROFILES[user_id]
 
-        base_dt = random_datetime_last_days(120)
-        is_anomaly = random.random() < ANOMALY_RATE
+        is_anomaly = random.random() < LOGIN_ANOMALY_RATE
+        result = random.random() < LOGIN_SUCCESS_RATE
 
-        # 90% de los logins correctos
-        result = random.random() < 0.90
-
-        # attempt realista
         if result:
             attempt = 1
         else:
             attempt = random.choice([1, 2, 3])
 
-        start_hour, end_hour = profile["login_window"]
-
         if is_anomaly:
-            logged_at = random_datetime_outside_window(base_dt, start_hour, end_hour)
+            logged_at = build_anomalous_login_timestamp(profile)
         else:
-            logged_at = random_datetime_in_window(base_dt, start_hour, end_hour)
+            logged_at = build_normal_login_timestamp(profile)
 
         if result:
             session_minutes = random.randint(5, 90)
             logout_at = logged_at + timedelta(minutes=session_minutes)
 
-            successful_sessions.append({
+            session_data = {
                 "user_id": user_id,
                 "start": logged_at,
-                "end": logout_at
-            })
+                "end": logout_at,
+                "is_anomaly": is_anomaly
+            }
+
+            successful_sessions_all.append(session_data)
+
+            if not is_anomaly:
+                successful_sessions_normal.append(session_data)
         else:
             logout_at = None
 
@@ -131,62 +255,121 @@ def generate_login_rows(num_logins):
         if (i + 1) % 10000 == 0:
             print(f"Logins generados: {i + 1}")
 
-    return login_rows, successful_sessions
+    return login_rows, successful_sessions_normal, successful_sessions_all
 
 
-def generate_activity_rows(num_activities, successful_sessions):
+def build_normal_activity_row(session, profile):
     """
-    Genera activity_log usando sesiones válidas para que el comportamiento
-    sea más realista.
+    Construye una actividad claramente normal:
+    - dentro de una sesión normal
+    - entre semana
+    - dentro del horario principal
+    - elemento, entidad y acción permitidos
+    """
+    session_seconds = int((session["end"] - session["start"]).total_seconds())
+    offset_seconds = random.randint(0, max(1, session_seconds))
+    logged_at = session["start"] + timedelta(seconds=offset_seconds)
+
+    element_id = random.choice(profile["allowed_elements"])
+    entity_id = random.choice(profile["allowed_entities"])
+    action_id = random.choice(profile["allowed_actions"])
+
+    return (
+        session["user_id"],
+        element_id,
+        entity_id,
+        action_id,
+        logged_at
+    )
+
+
+def build_anomalous_activity_row(session, profile):
+    """
+    Construye una actividad anómala rompiendo una sola regla fuerte.
+    Esto ayuda a que el dataset sea más realista y no se dispare el número
+    total de anomalías por múltiples incumplimientos a la vez.
+    """
+    session_seconds = int((session["end"] - session["start"]).total_seconds())
+    offset_seconds = random.randint(0, max(1, session_seconds))
+    base_logged_at = session["start"] + timedelta(seconds=offset_seconds)
+
+    anomaly_type = random.choice(["element", "entity", "action", "time", "weekend"])
+
+    # Partimos siempre de un caso válido y rompemos una sola regla
+    element_id = random.choice(profile["allowed_elements"])
+    entity_id = random.choice(profile["allowed_entities"])
+    action_id = random.choice(profile["allowed_actions"])
+    logged_at = base_logged_at
+
+    if anomaly_type == "element":
+        invalid_elements = [e for e in ALL_ELEMENTS if e not in profile["allowed_elements"]]
+        if invalid_elements:
+            element_id = random.choice(invalid_elements)
+
+    elif anomaly_type == "entity":
+        invalid_entities = [e for e in ALL_ENTITIES if e not in profile["allowed_entities"]]
+        if invalid_entities:
+            entity_id = random.choice(invalid_entities)
+
+    elif anomaly_type == "action":
+        invalid_actions = [a for a in ALL_ACTIONS if a not in profile["allowed_actions"]]
+        if invalid_actions:
+            action_id = random.choice(invalid_actions)
+
+    elif anomaly_type == "time":
+        weekday_dt = random_weekday_datetime_last_days(120)
+        logged_at = random_datetime_outside_tolerance(
+            weekday_dt,
+            profile["schedule_start"],
+            profile["schedule_end"],
+            profile["tolerance_minutes"]
+        )
+
+    else:  # weekend
+        weekend_dt = random_weekend_datetime_last_days(120)
+        logged_at = random_datetime_in_schedule(
+            weekend_dt,
+            profile["schedule_start"],
+            profile["schedule_end"]
+        )
+
+    return (
+        session["user_id"],
+        element_id,
+        entity_id,
+        action_id,
+        logged_at
+    )
+
+
+def generate_activity_rows(num_activities, successful_sessions_normal, successful_sessions_all):
+    """
+    Genera activity_log.
+
+    Para los casos normales usa solo sesiones normales.
+    Para los casos anómalos puede usar cualquier sesión correcta.
     """
     activity_rows = []
 
-    if not successful_sessions:
+    if not successful_sessions_normal:
+        raise ValueError("No hay sesiones normales suficientes para generar actividades normales.")
+
+    if not successful_sessions_all:
         raise ValueError("No hay sesiones correctas para generar actividades.")
 
     for i in range(num_activities):
-        session = random.choice(successful_sessions)
-        user_id = session["user_id"]
-        profile = USER_PROFILES[user_id]
+        is_anomaly = random.random() < ACTIVITY_ANOMALY_RATE
 
-        is_anomaly = random.random() < ANOMALY_RATE
-
-        # timestamp dentro de la sesión
-        session_seconds = int((session["end"] - session["start"]).total_seconds())
-        offset_seconds = random.randint(0, max(1, session_seconds))
-        logged_at = session["start"] + timedelta(seconds=offset_seconds)
-
-        # normal o anómalo
         if is_anomaly:
-            anomaly_type = random.choice(["element", "action", "time"])
-
-            if anomaly_type == "element":
-                invalid_elements = [e for e in ALL_ELEMENTS if e not in profile["allowed_elements"]]
-                element_id = random.choice(invalid_elements) if invalid_elements else random.choice(ALL_ELEMENTS)
-                action_id = random.choice(profile["allowed_actions"])
-
-            elif anomaly_type == "action":
-                invalid_actions = [a for a in ALL_ACTIONS if a not in profile["allowed_actions"]]
-                action_id = random.choice(invalid_actions) if invalid_actions else random.choice(ALL_ACTIONS)
-                element_id = random.choice(profile["allowed_elements"])
-
-            else:  # time anomaly
-                element_id = random.choice(profile["allowed_elements"])
-                action_id = random.choice(profile["allowed_actions"])
-                start_hour, end_hour = profile["login_window"]
-                logged_at = random_datetime_outside_window(logged_at, start_hour, end_hour)
-
+            session = random.choice(successful_sessions_all)
+            profile = USER_PROFILES[session["user_id"]]
+            row = build_anomalous_activity_row(session, profile)
         else:
-            element_id = random.choice(profile["allowed_elements"])
-            action_id = random.choice(profile["allowed_actions"])
+            session = random.choice(successful_sessions_normal)
+            profile = USER_PROFILES[session["user_id"]]
+            row = build_normal_activity_row(session, profile)
 
-        activity_rows.append((
-            user_id,
-            element_id,
-            ENTITY_ID,
-            action_id,
-            logged_at
-        ))
+        activity_rows.append(row)
 
         if (i + 1) % 10000 == 0:
             print(f"Activities generadas: {i + 1}")
@@ -195,6 +378,9 @@ def generate_activity_rows(num_activities, successful_sessions):
 
 
 def insert_login_rows(cursor, login_rows):
+    """
+    Inserta por lotes las filas generadas para login_log.
+    """
     query = """
         INSERT INTO login_log (user_id, result, attempt, logged_at, logout_at)
         VALUES (%s, %s, %s, %s, %s)
@@ -203,6 +389,9 @@ def insert_login_rows(cursor, login_rows):
 
 
 def insert_activity_rows(cursor, activity_rows):
+    """
+    Inserta por lotes las filas generadas para activity_log.
+    """
     query = """
         INSERT INTO activity_log (user_id, element_id, entity_id, action_id, logged_at)
         VALUES (%s, %s, %s, %s, %s)
@@ -211,11 +400,21 @@ def insert_activity_rows(cursor, activity_rows):
 
 
 def main():
+    """
+    Flujo principal:
+    1. Genera logins.
+    2. Genera actividades.
+    3. Inserta los datos en PostgreSQL.
+    """
     print("Generando login_log...")
-    login_rows, successful_sessions = generate_login_rows(NUM_LOGINS)
+    login_rows, successful_sessions_normal, successful_sessions_all = generate_login_rows(NUM_LOGINS)
 
     print("Generando activity_log...")
-    activity_rows = generate_activity_rows(NUM_ACTIVITIES, successful_sessions)
+    activity_rows = generate_activity_rows(
+        NUM_ACTIVITIES,
+        successful_sessions_normal,
+        successful_sessions_all
+    )
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -223,13 +422,12 @@ def main():
     try:
         print("Insertando login_log en base de datos...")
         insert_login_rows(cursor, login_rows)
-        connection.commit()
-        print("login_log insertado correctamente.")
 
         print("Insertando activity_log en base de datos...")
         insert_activity_rows(cursor, activity_rows)
+
         connection.commit()
-        print("activity_log insertado correctamente.")
+        print("Datos insertados correctamente.")
 
     except Exception as e:
         connection.rollback()
