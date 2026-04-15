@@ -3,8 +3,23 @@ from datetime import datetime, timedelta, time
 import psycopg2
 from psycopg2.extras import execute_batch
 
+"""
+Este archivo genera datos sintéticos para las tablas login_log y activity_log,
+siguiendo unas reglas de negocio alineadas con el archivo rules.py.
+El objetivo es simular tanto comportamientos normales como anómalos, manteniendo
+un reparto controlado de anomalías para que el dataset resulte útil en pruebas,
+análisis y entrenamiento de modelos.
+
+Questo file genera dati sintetici per le tabelle login_log e activity_log,
+seguendo regole di business allineate al file rules.py.
+L'obiettivo è simulare sia comportamenti normali sia anomali, mantenendo
+una distribuzione controllata delle anomalie in modo che il dataset risulti
+utile per test, analisi e addestramento di modelli.
+"""
+
 # =========================
 # CONFIGURACIÓN DE LA BASE DE DATOS
+# CONFIGURAZIONE DEL DATABASE
 # =========================
 DB_CONFIG = {
     "host": "localhost",
@@ -16,26 +31,34 @@ DB_CONFIG = {
 
 # =========================
 # CANTIDAD DE DATOS A GENERAR
+# QUANTITÀ DI DATI DA GENERARE
 # =========================
 NUM_LOGINS = 100_000
 NUM_ACTIVITIES = 100_000
 
 # =========================
 # PORCENTAJES DE ANOMALÍAS
+# PERCENTUALI DI ANOMALIE
 # =========================
 # Los separamos para tener más control.
 # Con estos valores, el resultado real suele quedar
 # aproximadamente en el rango 7%-10% si el resto está bien alineado.
+#
+# Li separiamo per avere più controllo.
+# Con questi valori, il risultato reale di solito si colloca
+# approssimativamente nell'intervallo 7%-10% se il resto è ben allineato.
 LOGIN_ANOMALY_RATE = 0.05
 ACTIVITY_ANOMALY_RATE = 0.05
 
 # =========================
 # PROBABILIDAD DE LOGIN CORRECTO
+# PROBABILITÀ DI LOGIN CORRETTO
 # =========================
 LOGIN_SUCCESS_RATE = 0.92
 
 # =========================
 # REGLAS ALINEADAS CON rules.py
+# REGOLE ALLINEATE CON rules.py
 # =========================
 USER_PROFILES = {
     1: {  # Matteo
@@ -67,6 +90,11 @@ USER_PROFILES = {
     }
 }
 
+# Conjuntos globales de elementos, entidades y acciones posibles.
+# Se utilizan para elegir valores válidos o inválidos según el caso.
+#
+# Insiemi globali di elementi, entità e azioni possibili.
+# Vengono utilizzati per scegliere valori validi o non validi a seconda del caso.
 ALL_ELEMENTS = [1, 2, 3, 4, 5, 6]
 ALL_ENTITIES = [1, 2, 3]
 ALL_ACTIONS = [1000000, 1000001, 1000002, 1000003, 1000004, 1000005]
@@ -74,15 +102,22 @@ ALL_ACTIONS = [1000000, 1000001, 1000002, 1000003, 1000004, 1000005]
 
 def get_connection():
     """
-    Abre una conexión con PostgreSQL.
+    Abre una conexión con PostgreSQL utilizando la configuración definida
+    en DB_CONFIG.
+
+    Apre una connessione a PostgreSQL utilizzando la configurazione definita
+    in DB_CONFIG.
     """
     return psycopg2.connect(**DB_CONFIG)
 
 
 def random_datetime_last_days(days_back=120):
     """
-    Genera una fecha aleatoria dentro de los últimos X días.
-    Puede caer en cualquier día de la semana.
+    Genera una fecha y hora aleatoria dentro de los últimos X días.
+    Puede caer en cualquier día de la semana y en cualquier momento del día.
+
+    Genera una data e un'ora casuale negli ultimi X giorni.
+    Può cadere in qualsiasi giorno della settimana e in qualsiasi momento della giornata.
     """
     now = datetime.now()
     start = now - timedelta(days=days_back)
@@ -93,8 +128,11 @@ def random_datetime_last_days(days_back=120):
 
 def random_weekday_datetime_last_days(days_back=120):
     """
-    Genera una fecha aleatoria en los últimos X días,
-    asegurando que caiga entre lunes y viernes.
+    Genera una fecha aleatoria dentro de los últimos X días,
+    asegurando que caiga de lunes a viernes.
+
+    Genera una data casuale negli ultimi X giorni,
+    assicurandosi che cada tra lunedì e venerdì.
     """
     while True:
         dt = random_datetime_last_days(days_back)
@@ -104,8 +142,11 @@ def random_weekday_datetime_last_days(days_back=120):
 
 def random_datetime_in_schedule(base_date: datetime, start_t: time, end_t: time):
     """
-    Genera una fecha aleatoria dentro del horario principal del usuario.
-    No incluye tolerancia: es un caso claramente normal.
+    Genera una fecha y hora aleatoria dentro del horario principal del usuario.
+    No incluye la tolerancia, por lo que representa un caso claramente normal.
+
+    Genera una data e un'ora casuale all'interno dell'orario principale dell'utente.
+    Non include la tolleranza, quindi rappresenta un caso chiaramente normale.
     """
     start_minutes = start_t.hour * 60 + start_t.minute
     end_minutes = end_t.hour * 60 + end_t.minute
@@ -120,8 +161,11 @@ def random_datetime_in_schedule(base_date: datetime, start_t: time, end_t: time)
 
 def random_datetime_outside_tolerance(base_date: datetime, start_t: time, end_t: time, tolerance_minutes: int):
     """
-    Genera una fecha claramente fuera del horario permitido,
-    incluyendo la tolerancia.
+    Genera una fecha y hora claramente fuera del horario permitido,
+    teniendo en cuenta también el margen de tolerancia.
+
+    Genera una data e un'ora chiaramente fuori dall'orario consentito,
+    tenendo conto anche del margine di tolleranza.
     """
     start_minutes = start_t.hour * 60 + start_t.minute
     end_minutes = end_t.hour * 60 + end_t.minute
@@ -144,7 +188,9 @@ def random_datetime_outside_tolerance(base_date: datetime, start_t: time, end_t:
 
 def random_weekend_datetime_last_days(days_back=120):
     """
-    Genera una fecha aleatoria en fin de semana.
+    Genera una fecha y hora aleatoria en fin de semana.
+
+    Genera una data e un'ora casuale nel fine settimana.
     """
     while True:
         dt = random_datetime_last_days(days_back)
@@ -156,7 +202,11 @@ def build_normal_login_timestamp(profile):
     """
     Genera un timestamp de login normal:
     - entre semana
-    - dentro del horario principal
+    - dentro del horario principal del usuario
+
+    Genera un timestamp di login normale:
+    - nei giorni lavorativi
+    - all'interno dell'orario principale dell'utente
     """
     base_dt = random_weekday_datetime_last_days(120)
     return random_datetime_in_schedule(
@@ -172,6 +222,11 @@ def build_anomalous_login_timestamp(profile):
     Tipos posibles:
     - fin de semana
     - muy fuera de horario
+
+    Genera un timestamp di login anomalo.
+    Tipi possibili:
+    - fine settimana
+    - molto fuori orario
     """
     anomaly_type = random.choice(["weekend", "outside_schedule"])
 
@@ -195,12 +250,17 @@ def build_anomalous_login_timestamp(profile):
 
 def generate_login_rows(num_logins):
     """
-    Genera filas sintéticas para login_log.
-
+    Genera filas sintéticas para la tabla login_log.
     Devuelve:
-    - login_rows: lista de registros para insertar en login_log
+    - login_rows: lista de registros listos para insertar en login_log
     - successful_sessions_normal: sesiones correctas y normales
-    - successful_sessions_all: todas las sesiones correctas
+    - successful_sessions_all: todas las sesiones correctas, tanto normales como anómalas
+
+    Genera righe sintetiche per la tabella login_log.
+    Restituisce:
+    - login_rows: lista di record pronti per essere inseriti in login_log
+    - successful_sessions_normal: sessioni corrette e normali
+    - successful_sessions_all: tutte le sessioni corrette, sia normali sia anomale
     """
     login_rows = []
     successful_sessions_normal = []
@@ -253,7 +313,7 @@ def generate_login_rows(num_logins):
         ))
 
         if (i + 1) % 10000 == 0:
-            print(f"Logins generados: {i + 1}")
+            print(f"Login generati: {i + 1}")
 
     return login_rows, successful_sessions_normal, successful_sessions_all
 
@@ -264,7 +324,13 @@ def build_normal_activity_row(session, profile):
     - dentro de una sesión normal
     - entre semana
     - dentro del horario principal
-    - elemento, entidad y acción permitidos
+    - con elemento, entidad y acción permitidos
+
+    Costruisce un'attività chiaramente normale:
+    - all'interno di una sessione normale
+    - nei giorni lavorativi
+    - all'interno dell'orario principale
+    - con elemento, entità e azione consentiti
     """
     session_seconds = int((session["end"] - session["start"]).total_seconds())
     offset_seconds = random.randint(0, max(1, session_seconds))
@@ -286,8 +352,12 @@ def build_normal_activity_row(session, profile):
 def build_anomalous_activity_row(session, profile):
     """
     Construye una actividad anómala rompiendo una sola regla fuerte.
-    Esto ayuda a que el dataset sea más realista y no se dispare el número
-    total de anomalías por múltiples incumplimientos a la vez.
+    Esto ayuda a que el dataset sea más realista y evita que el número total
+    de anomalías aumente artificialmente por múltiples incumplimientos simultáneos.
+
+    Costruisce un'attività anomala violando una sola regola forte.
+    Questo aiuta a rendere il dataset più realistico ed evita che il numero totale
+    di anomalie aumenti artificialmente a causa di più violazioni contemporanee.
     """
     session_seconds = int((session["end"] - session["start"]).total_seconds())
     offset_seconds = random.randint(0, max(1, session_seconds))
@@ -295,7 +365,8 @@ def build_anomalous_activity_row(session, profile):
 
     anomaly_type = random.choice(["element", "entity", "action", "time", "weekend"])
 
-    # Partimos siempre de un caso válido y rompemos una sola regla
+    # Partimos siempre de un caso válido y rompemos una sola regla.
+    # Partiamo sempre da un caso valido e violiamo una sola regola.
     element_id = random.choice(profile["allowed_elements"])
     entity_id = random.choice(profile["allowed_entities"])
     action_id = random.choice(profile["allowed_actions"])
@@ -344,18 +415,23 @@ def build_anomalous_activity_row(session, profile):
 
 def generate_activity_rows(num_activities, successful_sessions_normal, successful_sessions_all):
     """
-    Genera activity_log.
+    Genera las filas sintéticas para activity_log.
 
-    Para los casos normales usa solo sesiones normales.
-    Para los casos anómalos puede usar cualquier sesión correcta.
+    Para los casos normales utiliza únicamente sesiones normales.
+    Para los casos anómalos puede utilizar cualquier sesión correcta.
+
+    Genera le righe sintetiche per activity_log.
+
+    Per i casi normali utilizza solo sessioni normali.
+    Per i casi anomali può utilizzare qualsiasi sessione corretta.
     """
     activity_rows = []
 
     if not successful_sessions_normal:
-        raise ValueError("No hay sesiones normales suficientes para generar actividades normales.")
+        raise ValueError("Non ci sono sessioni normali sufficienti per generare attività normali.")
 
     if not successful_sessions_all:
-        raise ValueError("No hay sesiones correctas para generar actividades.")
+        raise ValueError("Non ci sono sessioni corrette per generare attività.")
 
     for i in range(num_activities):
         is_anomaly = random.random() < ACTIVITY_ANOMALY_RATE
@@ -372,7 +448,7 @@ def generate_activity_rows(num_activities, successful_sessions_normal, successfu
         activity_rows.append(row)
 
         if (i + 1) % 10000 == 0:
-            print(f"Activities generadas: {i + 1}")
+            print(f"Attività generate: {i + 1}")
 
     return activity_rows
 
@@ -380,6 +456,8 @@ def generate_activity_rows(num_activities, successful_sessions_normal, successfu
 def insert_login_rows(cursor, login_rows):
     """
     Inserta por lotes las filas generadas para login_log.
+
+    Inserisce in batch le righe generate per login_log.
     """
     query = """
         INSERT INTO login_log (user_id, result, attempt, logged_at, logout_at)
@@ -391,6 +469,8 @@ def insert_login_rows(cursor, login_rows):
 def insert_activity_rows(cursor, activity_rows):
     """
     Inserta por lotes las filas generadas para activity_log.
+
+    Inserisce in batch le righe generate per activity_log.
     """
     query = """
         INSERT INTO activity_log (user_id, element_id, entity_id, action_id, logged_at)
@@ -401,15 +481,20 @@ def insert_activity_rows(cursor, activity_rows):
 
 def main():
     """
-    Flujo principal:
-    1. Genera logins.
-    2. Genera actividades.
-    3. Inserta los datos en PostgreSQL.
+    Flujo principal del script:
+    1. Genera los registros de login.
+    2. Genera los registros de actividad.
+    3. Inserta ambos conjuntos de datos en PostgreSQL.
+
+    Flusso principale dello script:
+    1. Genera i record di login.
+    2. Genera i record di attività.
+    3. Inserisce entrambi i dataset in PostgreSQL.
     """
-    print("Generando login_log...")
+    print("Generazione di login_log...")
     login_rows, successful_sessions_normal, successful_sessions_all = generate_login_rows(NUM_LOGINS)
 
-    print("Generando activity_log...")
+    print("Generazione di activity_log...")
     activity_rows = generate_activity_rows(
         NUM_ACTIVITIES,
         successful_sessions_normal,
@@ -420,18 +505,18 @@ def main():
     cursor = connection.cursor()
 
     try:
-        print("Insertando login_log en base de datos...")
+        print("Inserimento di login_log nel database...")
         insert_login_rows(cursor, login_rows)
 
-        print("Insertando activity_log en base de datos...")
+        print("Inserimento di activity_log nel database...")
         insert_activity_rows(cursor, activity_rows)
 
         connection.commit()
-        print("Datos insertados correctamente.")
+        print("Dati inseriti correttamente.")
 
     except Exception as e:
         connection.rollback()
-        print(f"Error durante la inserción: {e}")
+        print(f"Errore durante l'inserimento: {e}")
 
     finally:
         cursor.close()
