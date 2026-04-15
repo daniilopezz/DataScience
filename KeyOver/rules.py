@@ -1,27 +1,31 @@
 from datetime import datetime, time
 
 """
-Este archivo define las reglas de negocio utilizadas para detectar anomalías
-en los eventos de login y en las actividades realizadas por los usuarios.
+Este archivo define las reglas de negocio de referencia del proyecto.
 
-Se validan los siguientes casos:
-- acceso en fin de semana
-- acceso fuera del horario laboral
-- acceso dentro o fuera del margen de tolerancia horaria
-- acceso a elementos no permitidos
-- acceso a entidades no permitidas
-- ejecución de acciones no permitidas
+Estas reglas describen el comportamiento esperado de cada usuario en términos de:
+- horario habitual
+- tolerancia horaria
+- elementos permitidos
+- entidades permitidas
+- acciones permitidas
 
-Questo file definisce le regole di business utilizzate per rilevare anomalie
-negli eventi di login e nelle attività eseguite dagli utenti.
+Aunque el modelo de machine learning final no utilice estas reglas para detectar
+anomalías en tiempo real, este archivo sigue siendo útil como documentación
+funcional y como apoyo para la generación de datos sintéticos.
 
-Vengono controllati i seguenti casi:
-- accesso nel fine settimana
-- accesso fuori dall'orario di lavoro
-- accesso entro o fuori dal margine di tolleranza oraria
-- accesso a elementi non consentiti
-- accesso a entità non consentite
-- esecuzione di azioni non consentite
+Questo file definisce le regole di business di riferimento del progetto.
+
+Queste regole descrivono il comportamento atteso di ciascun utente in termini di:
+- orario abituale
+- tolleranza oraria
+- elementi consentiti
+- entità consentite
+- azioni consentite
+
+Anche se il modello finale di machine learning non utilizza queste regole per
+rilevare anomalie in tempo reale, questo file rimane utile come documentazione
+funzionale e come supporto per la generazione di dati sintetici.
 """
 
 USER_NAMES = {
@@ -45,22 +49,22 @@ ENTITY_NAMES = {
     3: "Group"
 }
 
-# Horarios reales asignados a cada usuario.
-# "start" y "end" representan la franja horaria habitual de trabajo.
-# "tolerance_minutes" indica el margen permitido antes y después del horario normal.
+# Horarios habituales definidos para cada usuario.
+# "start" y "end" representan la franja normal de trabajo.
+# "tolerance_minutes" indica el margen permitido antes y después del horario principal.
 #
-# Orari reali assegnati a ciascun utente.
-# "start" e "end" rappresentano la fascia oraria abituale di lavoro.
-# "tolerance_minutes" indica il margine consentito prima e dopo l'orario normale.
+# Orari abituali definiti per ciascun utente.
+# "start" e "end" rappresentano la fascia normale di lavoro.
+# "tolerance_minutes" indica il margine consentito prima e dopo l'orario principale.
 USER_SCHEDULES = {
     1: {"start": time(9, 0), "end": time(13, 0), "tolerance_minutes": 15},   # Matteo
     2: {"start": time(9, 0), "end": time(17, 0), "tolerance_minutes": 20},   # Diego
     3: {"start": time(10, 0), "end": time(18, 0), "tolerance_minutes": 20}   # Emilio
 }
- 
-# Elementos a los que cada usuario tiene permiso de acceso.
+
+# Elementos permitidos para cada usuario.
 #
-# Elementi ai quali ciascun utente ha il permesso di accedere.
+# Elementi consentiti per ciascun utente.
 ALLOWED_ELEMENTS = {
     1: [1, 2],          # Matteo -> FVG, AMCO
     2: [3],             # Diego -> VETTING
@@ -68,7 +72,7 @@ ALLOWED_ELEMENTS = {
 }
 
 # Entidades permitidas para cada usuario.
-# 
+#
 # Entità consentite per ciascun utente.
 ALLOWED_ENTITIES = {
     1: [1],        # Matteo -> Password
@@ -76,9 +80,9 @@ ALLOWED_ENTITIES = {
     3: [1, 3]      # Emilio -> Password, Group
 }
 
-# Acciones que cada usuario puede ejecutar según las reglas de negocio.
-# 
-# Azioni che ciascun utente può eseguire secondo le regole di business.
+# Acciones permitidas para cada usuario.
+#
+# Azioni consentite per ciascun utente.
 ALLOWED_ACTIONS = {
     1: [1000000, 1000004, 1000005],                  # Matteo -> Visualize, Copy, Share
     2: [1000000, 1000001, 1000002, 1000005],         # Diego -> Visualize, Create, Edit, Share
@@ -88,56 +92,45 @@ ALLOWED_ACTIONS = {
 
 def is_weekday(dt: datetime) -> bool:
     """
-    Devuelve True si la fecha proporcionada corresponde a un día laborable,
-    es decir, de lunes a viernes.
+    Devuelve True si la fecha cae entre lunes y viernes.
 
-    Restituisce True se la data fornita corrisponde a un giorno lavorativo,
-    cioè dal lunedì al venerdì.
+    Restituisce True se la data cade tra lunedì e venerdì.
     """
-    return dt.weekday() in [0, 1, 2, 3, 4]
+    return dt.weekday() < 5
 
 
 def is_within_main_schedule(user_id: int, dt: datetime) -> bool:
     """
-    Comprueba si un usuario está accediendo dentro de su horario laboral habitual.
-    Si el usuario no tiene un horario definido en USER_SCHEDULES, se considera válido.
+    Comprueba si el usuario está dentro de su horario habitual principal.
 
-    Controlla se un utente sta accedendo all'interno del proprio orario di lavoro abituale.
-    Se l'utente non ha un orario definito in USER_SCHEDULES, l'accesso viene considerato valido.
+    Si el usuario no tiene un horario definido, se considera válido.
+
+    Controlla se l'utente rientra nel proprio orario abituale principale.
+
+    Se l'utente non ha un orario definito, viene considerato valido.
     """
     if user_id not in USER_SCHEDULES:
         return True
 
     schedule = USER_SCHEDULES[user_id]
     current_time = dt.time()
+
     return schedule["start"] <= current_time <= schedule["end"]
 
 
 def is_within_tolerance_schedule(user_id: int, dt: datetime) -> bool:
     """
-    Comprueba si un acceso o una actividad se realiza dentro del horario permitido
-    considerando el margen de tolerancia configurado para el usuario.
+    Comprueba si la fecha y hora están dentro de la franja permitida
+    incluyendo la tolerancia del usuario.
 
-    Primero convierte las horas a minutos para facilitar la comparación:
-    - hora de inicio
-    - hora de fin
-    - hora actual
-
-    Después verifica si la hora actual está entre:
-    (inicio - tolerancia) y (fin + tolerancia).
+    Se convierte cada hora a minutos para facilitar la comparación.
 
     Si el usuario no tiene un horario definido, se considera válido.
 
-    Controlla se un accesso o un'attività viene effettuato entro l'orario consentito
-    considerando il margine di tolleranza configurato per l'utente.
+    Controlla se la data e l'ora rientrano nella fascia consentita
+    includendo la tolleranza dell'utente.
 
-    Per farlo converte gli orari in minuti così da semplificare il confronto:
-    - orario di inizio
-    - orario di fine
-    - orario attuale
-
-    Successivamente verifica se l'orario attuale rientra tra:
-    (inizio - tolleranza) e (fine + tolleranza).
+    Ogni orario viene convertito in minuti per facilitare il confronto.
 
     Se l'utente non ha un orario definito, viene considerato valido.
     """
@@ -156,11 +149,13 @@ def is_within_tolerance_schedule(user_id: int, dt: datetime) -> bool:
 
 def is_allowed_element(user_id: int, element_id: int) -> bool:
     """
-    Verifica si el elemento indicado está permitido para el usuario.
-    Si el usuario no tiene restricciones definidas, el acceso se considera válido.
+    Comprueba si el elemento indicado está permitido para el usuario.
 
-    Verifica se l'elemento indicato è consentito per l'utente.
-    Se l'utente non ha restrizioni definite, l'accesso viene considerato valido.
+    Si el usuario no tiene restricciones definidas, se considera válido.
+
+    Controlla se l'elemento indicato è consentito per l'utente.
+
+    Se l'utente non ha restrizioni definite, viene considerato valido.
     """
     if user_id not in ALLOWED_ELEMENTS:
         return True
@@ -170,11 +165,13 @@ def is_allowed_element(user_id: int, element_id: int) -> bool:
 
 def is_allowed_entity(user_id: int, entity_id: int) -> bool:
     """
-    Verifica si la entidad indicada está permitida para el usuario.
-    Si el usuario no tiene restricciones definidas, el acceso se considera válido.
+    Comprueba si la entidad indicada está permitida para el usuario.
 
-    Verifica se l'entità indicata è consentita per l'utente.
-    Se l'utente non ha restrizioni definite, l'accesso viene considerato valido.
+    Si el usuario no tiene restricciones definidas, se considera válido.
+
+    Controlla se l'entità indicata è consentita per l'utente.
+
+    Se l'utente non ha restrizioni definite, viene considerato valido.
     """
     if user_id not in ALLOWED_ENTITIES:
         return True
@@ -184,11 +181,13 @@ def is_allowed_entity(user_id: int, entity_id: int) -> bool:
 
 def is_allowed_action(user_id: int, action_id: int) -> bool:
     """
-    Verifica si la acción indicada está permitida para el usuario.
-    Si el usuario no tiene restricciones definidas, la acción se considera válida.
+    Comprueba si la acción indicada está permitida para el usuario.
 
-    Verifica se l'azione indicata è consentita per l'utente.
-    Se l'utente non ha restrizioni definite, l'azione viene considerata valida.
+    Si el usuario no tiene restricciones definidas, se considera válida.
+
+    Controlla se l'azione indicata è consentita per l'utente.
+
+    Se l'utente non ha restrizioni definite, viene considerata valida.
     """
     if user_id not in ALLOWED_ACTIONS:
         return True
@@ -198,11 +197,17 @@ def is_allowed_action(user_id: int, action_id: int) -> bool:
 
 def evaluate_login_anomaly(user_id: int, dt: datetime) -> list[str]:
     """
-    Evalúa si un evento de login presenta alguna anomalía o aviso.
-    Devuelve una lista de mensajes con las incidencias detectadas.
+    Evalúa si un evento de login incumple alguna de las reglas de referencia.
 
-    Valuta se un evento di login presenta qualche anomalia o avviso.
-    Restituisce una lista di messaggi con le anomalie o gli avvisi rilevati.
+    Devuelve una lista de mensajes:
+    - "Anomalia: ..." para incumplimientos fuertes
+    - "Avviso: ..." para casos fuera del horario principal pero dentro de tolerancia
+
+    Valuta se un evento di login viola una delle regole di riferimento.
+
+    Restituisce una lista di messaggi:
+    - "Anomalia: ..." per violazioni forti
+    - "Avviso: ..." per casi fuori dall'orario principale ma entro la tolleranza
     """
     messages = []
 
@@ -225,11 +230,17 @@ def evaluate_activity_anomaly(
     dt: datetime
 ) -> list[str]:
     """
-    Evalúa si una actividad realizada por un usuario presenta anomalías o avisos.
-    Devuelve una lista de mensajes con las incidencias detectadas.
+    Evalúa si una actividad incumple alguna de las reglas de referencia.
 
-    Valuta se un'attività eseguita da un utente presenta anomalie o avvisi.
-    Restituisce una lista di messaggi con le anomalie o gli avvisi rilevati.
+    Devuelve una lista de mensajes:
+    - "Anomalia: ..." para incumplimientos fuertes
+    - "Avviso: ..." para casos tolerados pero fuera del patrón principal
+
+    Valuta se un'attività viola una delle regole di riferimento.
+
+    Restituisce una lista di messaggi:
+    - "Anomalia: ..." per violazioni forti
+    - "Avviso: ..." per casi tollerati ma fuori dal pattern principale
     """
     messages = []
 

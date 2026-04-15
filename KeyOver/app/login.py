@@ -1,31 +1,42 @@
 import hashlib
 import getpass
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import psycopg2
 from psycopg2 import Error
 
+# Añadimos la raíz del proyecto al path para poder importar ml_model.py
+# también cuando este archivo se ejecuta directamente desde app/login.py.
+#
+# Aggiungiamo la radice del progetto al path per poter importare ml_model.py
+# anche quando questo file viene eseguito direttamente da app/login.py.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from ml_model import load_model, predict_activity_with_model
-from rules import evaluate_login_anomaly, evaluate_activity_anomaly
 
 """
 Este archivo gestiona el flujo principal de interacción con la aplicación:
 inicio de sesión, registro de accesos, selección de elementos, ejecución de acciones
 y almacenamiento de predicciones generadas por el modelo de machine learning.
-Combina dos capas de control:
-- reglas de negocio, para detectar anomalías según permisos y horarios
-- modelo de machine learning, para estimar si una actividad es anómala
+
+En esta versión no se utilizan reglas fijas para detectar anomalías.
+La autenticación sigue funcionando de forma normal, pero la detección de
+comportamientos anómalos se realiza a través del modelo entrenado a partir
+de los datos históricos.
 
 Questo file gestisce il flusso principale di interazione con l'applicazione:
 login, registrazione degli accessi, selezione degli elementi, esecuzione delle azioni
 e salvataggio delle previsioni generate dal modello di machine learning.
-Combina due livelli di controllo:
-- regole di business, per rilevare anomalie in base a permessi e orari
-- modello di machine learning, per stimare se un'attività è anomala
+
+In questa versione non vengono utilizzate regole fisse per rilevare anomalie.
+L'autenticazione continua a funzionare normalmente, ma il rilevamento dei
+comportamenti anomali viene eseguito tramite il modello addestrato sui dati storici.
 """
 
-# Configuración de conexión a PostgreSQL.
-# Configurazione della connessione a PostgreSQL.
 DB_CONFIG = {
     "host": "localhost",
     "port": 5432,
@@ -34,23 +45,10 @@ DB_CONFIG = {
     "password": ""
 }
 
-# Número máximo de intentos permitidos en el login.
-# Numero massimo di tentativi consentiti nel login.
 MAX_ATTEMPTS = 3
-
-# Entidad por defecto que se utilizará en las acciones.
-# En esta base de datos, 1 corresponde a "Password".
-#
-# Entità predefinita che verrà utilizzata nelle azioni.
-# In questo database, 1 corrisponde a "Password".
 DEFAULT_ENTITY_ID = 1
+ML_MODEL_PATH = PROJECT_ROOT / "models" / "activity_model.pkl"
 
-# Ruta del modelo de machine learning ya entrenado.
-# Percorso del modello di machine learning già addestrato.
-ML_MODEL_PATH = "activity_model.pkl"
-
-# Diccionario que relaciona cada opción del menú con su action_id real de la base de datos.
-# Dizionario che collega ogni opzione del menu con il relativo action_id reale del database.
 ACTION_IDS = {
     "1": 1000000,  # Visualize
     "2": 1000001,  # Create
@@ -64,23 +62,21 @@ ACTION_IDS = {
 def hash_password(password: str) -> str:
     """
     Convierte la contraseña introducida por el usuario en un hash SHA-256.
-    De esta forma se puede comparar con la contraseña almacenada en la base de datos
-    sin trabajar con la contraseña en texto plano.
+    Así puede compararse con el hash guardado en la base de datos.
 
     Converte la password inserita dall'utente in un hash SHA-256.
-    In questo modo può essere confrontata con la password memorizzata nel database
-    senza lavorare con la password in chiaro.
+    In questo modo può essere confrontata con l'hash salvato nel database.
     """
     return hashlib.sha256(password.encode()).hexdigest()
 
 
 def get_connection():
     """
-    Intenta abrir una conexión con PostgreSQL usando la configuración definida.
-    Si falla, muestra el error por pantalla y devuelve None.
+    Abre una conexión con PostgreSQL utilizando la configuración definida.
+    Si ocurre un error, muestra el mensaje y devuelve None.
 
-    Tenta di aprire una connessione a PostgreSQL usando la configurazione definita.
-    Se fallisce, mostra l'errore a schermo e restituisce None.
+    Apre una connessione a PostgreSQL utilizzando la configurazione definita.
+    Se si verifica un errore, mostra il messaggio e restituisce None.
     """
     try:
         return psycopg2.connect(**DB_CONFIG)
@@ -91,13 +87,9 @@ def get_connection():
 
 def get_next_attempt(cursor, user_id: int) -> int:
     """
-    Obtiene el siguiente número de intento de login para un usuario concreto.
-    Busca el valor máximo de la columna attempt en login_log para ese usuario
-    y le suma 1. Si no existen intentos previos, comienza en 1.
+    Obtiene el siguiente número de intento de login para un usuario.
 
-    Ottiene il numero di tentativo successivo di login per uno specifico utente.
-    Cerca il valore massimo della colonna attempt in login_log per quell'utente
-    e aggiunge 1. Se non esistono tentativi precedenti, parte da 1.
+    Ottiene il numero del tentativo di login successivo per un utente.
     """
     query = """
         SELECT COALESCE(MAX(attempt), 0) + 1
@@ -110,23 +102,9 @@ def get_next_attempt(cursor, user_id: int) -> int:
 
 def save_login_log(cursor, user_id: int, result: bool, attempt: int):
     """
-    Guarda en login_log un nuevo intento de inicio de sesión.
-    Registra:
-    - user_id
-    - resultado del login
-    - número de intento
-    - fecha y hora del acceso
-    - logout_at inicialmente en NULL
-    Devuelve el login_log_id generado por la inserción.
+    Guarda un nuevo intento de login en login_log y devuelve el login_log_id generado.
 
-    Salva in login_log un nuovo tentativo di accesso.
-    Registra:
-    - user_id
-    - risultato del login
-    - numero di tentativo
-    - data e ora dell'accesso
-    - logout_at inizialmente a NULL
-    Restituisce il login_log_id generato dall'inserimento.
+    Salva un nuovo tentativo di login in login_log e restituisce il login_log_id generato.
     """
     query = """
         INSERT INTO login_log (user_id, result, attempt, logged_at, logout_at)
@@ -139,11 +117,9 @@ def save_login_log(cursor, user_id: int, result: bool, attempt: int):
 
 def update_logout(cursor, login_log_id: int):
     """
-    Actualiza el campo logout_at del registro de login correspondiente
-    cuando el usuario cierra la sesión.
+    Actualiza logout_at cuando el usuario cierra sesión.
 
-    Aggiorna il campo logout_at del record di login corrispondente
-    quando l'utente chiude la sessione.
+    Aggiorna logout_at quando l'utente chiude la sessione.
     """
     query = """
         UPDATE login_log
@@ -155,27 +131,9 @@ def update_logout(cursor, login_log_id: int):
 
 def save_activity_log(cursor, user_id: int, action_id: int, element_id: int, entity_id: int):
     """
-    Guarda una acción realizada por el usuario en la tabla activity_log.
-    Registra:
-    - usuario
-    - elemento seleccionado
-    - entidad
-    - acción ejecutada
-    - fecha y hora de la operación
+    Guarda una acción del usuario en activity_log y devuelve el activity_log_id generado.
 
-    Devuelve el activity_log_id generado, para poder relacionarlo después
-    con la predicción del modelo de machine learning.
-
-    Salva un'azione eseguita dall'utente nella tabella activity_log.
-    Registra:
-    - utente
-    - elemento selezionato
-    - entità
-    - azione eseguita
-    - data e ora dell'operazione
-
-    Restituisce l'activity_log_id generato, così da poterlo collegare in seguito
-    alla previsione del modello di machine learning.
+    Salva un'azione dell'utente in activity_log e restituisce l'activity_log_id generato.
     """
     query = """
         INSERT INTO activity_log (user_id, element_id, entity_id, action_id, logged_at)
@@ -197,15 +155,9 @@ def save_ml_prediction_log(
     anomaly_probability
 ):
     """
-    Guarda en la tabla ml_prediction_log la predicción generada por el modelo
-    de machine learning asociada a una actividad concreta.
-    El registro queda enlazado con activity_log mediante activity_log_id,
-    lo que permite saber exactamente qué predicción corresponde a cada acción.
+    Guarda en ml_prediction_log la predicción asociada a una actividad concreta.
 
-    Salva nella tabella ml_prediction_log la previsione generata dal modello
-    di machine learning associata a una specifica attività.
-    Il record rimane collegato ad activity_log tramite activity_log_id,
-    permettendo di sapere esattamente quale previsione corrisponde a ogni azione.
+    Salva in ml_prediction_log la previsione associata a una specifica attività.
     """
     prediction = bool(prediction)
 
@@ -241,13 +193,9 @@ def save_ml_prediction_log(
 
 def get_elements(cursor):
     """
-    Obtiene desde la tabla element todos los elementos disponibles,
-    ordenados por element_id.
-    Se utilizan para construir dinámicamente el menú de elementos.
+    Obtiene los elementos disponibles desde la tabla element.
 
-    Recupera dalla tabella element tutti gli elementi disponibili,
-    ordinati per element_id.
-    Vengono utilizzati per costruire dinamicamente il menu degli elementi.
+    Recupera gli elementi disponibili dalla tabella element.
     """
     query = """
         SELECT element_id, name
@@ -258,30 +206,22 @@ def get_elements(cursor):
     return cursor.fetchall()
 
 
-def show_ml_prediction(model, user_id: int, element_id: int, action_id: int):
+def show_ml_prediction(model_bundle, user_id: int, element_id: int, action_id: int):
     """
-    Llama al modelo de machine learning para predecir si la actividad actual
-    es normal o anómala.
-    Muestra por pantalla:
-    - la clasificación del modelo
-    - la probabilidad estimada de anomalía, si está disponible
+    Ejecuta una predicción del modelo para la actividad actual.
 
     Devuelve:
-    - prediction: True/False
-    - probability: probabilidad numérica o None
+    - prediction: 1 si la actividad es anómala, 0 si es normal
+    - probability: score numérico entre 0 y 1
 
-    Richiama il modello di machine learning per prevedere se l'attività attuale
-    è normale o anomala.
-    Mostra a schermo:
-    - la classificazione del modello
-    - la probabilità stimata di anomalia, se disponibile
+    Esegue una previsione del modello per l'attività attuale.
 
     Restituisce:
-    - prediction: True/False
-    - probability: probabilità numerica o None
+    - prediction: 1 se l'attività è anomala, 0 se è normale
+    - probability: score numerico tra 0 e 1
     """
     prediction, probability = predict_activity_with_model(
-        model=model,
+        model_bundle=model_bundle,
         user_id=user_id,
         element_id=element_id,
         entity_id=DEFAULT_ENTITY_ID,
@@ -295,45 +235,16 @@ def show_ml_prediction(model, user_id: int, element_id: int, action_id: int):
         print("\n[ML] Previsione del modello: attività normale.")
 
     if probability is not None:
-        print(f"[ML] Probabilità stimata di anomalia: {probability:.4f}")
+        print(f"[ML] Score stimato di anomalia: {probability:.4f}")
 
-    return bool(prediction), probability
-
-
-def ask_user_confirmation(messages: list[str]) -> bool:
-    """
-    Muestra los mensajes de anomalía detectados por las reglas
-    y pregunta al usuario si desea continuar igualmente.
-    Devuelve:
-    - True si el usuario responde 's'
-    - False si el usuario responde 'n'
-
-    Mostra i messaggi di anomalia rilevati dalle regole
-    e chiede all'utente se desidera continuare comunque.
-    Restituisce:
-    - True se l'utente risponde 's'
-    - False se l'utente risponde 'n'
-    """
-    print("\n*** ANOMALIA RILEVATA ***")
-    for message in messages:
-        print(f"- {message}")
-
-    while True:
-        answer = input("Vuoi continuare comunque? (s/n): ").strip().lower()
-        if answer == "s":
-            return True
-        if answer == "n":
-            return False
-        print("Risposta non valida. Scrivi 's' oppure 'n'.")
+    return int(prediction), probability
 
 
 def show_main_menu():
     """
     Muestra el menú principal del programa.
-    Desde aquí el usuario puede iniciar sesión o salir de la aplicación.
 
     Mostra il menu principale del programma.
-    Da qui l'utente può effettuare il login oppure uscire dall'applicazione.
     """
     print("\n=== MENU PRINCIPALE ===")
     print("1 - Accedi")
@@ -342,11 +253,9 @@ def show_main_menu():
 
 def show_element_menu(elements):
     """
-    Muestra el menú de elementos disponibles.
-    Los elementos se cargan dinámicamente desde la base de datos.
+    Muestra el menú de elementos disponible.
 
-    Mostra il menu degli elementi disponibili.
-    Gli elementi vengono caricati dinamicamente dal database.
+    Mostra il menu degli elementi disponibile.
     """
     print("\n=== MENU ELEMENT ===")
     for element_id, name in elements:
@@ -373,64 +282,66 @@ def show_action_menu(selected_element_name: str):
 def process_action(
     cursor,
     connection,
-    model,
+    model_bundle,
     user_id: int,
     element_id: int,
     action_option: str,
     action_text: str
 ):
     """
-    Procesa una acción del usuario sobre un elemento concreto.
-    Flujo:
-    1. Obtiene el action_id real según la opción elegida.
-    2. Evalúa si la acción es anómala según las reglas.
-    3. Si hay anomalías, pide confirmación al usuario.
-    4. Si el usuario acepta, guarda la actividad en activity_log.
-    5. Si existe un modelo cargado, ejecuta la predicción ML.
-    6. Guarda la predicción en ml_prediction_log enlazada con la actividad real.
+    Procesa una acción del usuario sobre un elemento.
 
-    Elabora un'azione dell'utente su uno specifico elemento.
+    Flujo:
+    1. Obtiene el action_id real.
+    2. Guarda la actividad en activity_log.
+    3. Si existe modelo cargado, ejecuta la predicción ML.
+    4. Guarda la predicción en ml_prediction_log.
+    5. Confirma la transacción.
+
+    Elabora un'azione dell'utente su un elemento.
+
     Flusso:
-    1. Ottiene l'action_id reale in base all'opzione scelta.
-    2. Valuta se l'azione è anomala secondo le regole.
-    3. Se ci sono anomalie, chiede conferma all'utente.
-    4. Se l'utente accetta, salva l'attività in activity_log.
-    5. Se esiste un modello caricato, esegue la previsione ML.
-    6. Salva la previsione in ml_prediction_log collegata all'attività reale.
+    1. Ottiene l'action_id reale.
+    2. Salva l'attività in activity_log.
+    3. Se esiste un modello caricato, esegue la previsione ML.
+    4. Salva la previsione in ml_prediction_log.
+    5. Conferma la transazione.
     """
     action_id = ACTION_IDS[action_option]
-    now = datetime.now()
-
-    anomaly_messages = evaluate_activity_anomaly(
-        user_id=user_id,
-        element_id=element_id,
-        entity_id=DEFAULT_ENTITY_ID,
-        action_id=action_id,
-        dt=now
-    )
-
-    if anomaly_messages:
-        confirmed = ask_user_confirmation(anomaly_messages)
-        if not confirmed:
-            print("Operazione annullata dall'utente.")
-            return
 
     print(f"\nStai eseguendo l'azione: {action_text}.")
-    activity_log_id = save_activity_log(cursor, user_id, action_id, element_id, DEFAULT_ENTITY_ID)
+    activity_log_id = save_activity_log(
+        cursor=cursor,
+        user_id=user_id,
+        action_id=action_id,
+        element_id=element_id,
+        entity_id=DEFAULT_ENTITY_ID
+    )
 
-    if model is not None:
-        prediction, probability = show_ml_prediction(model, user_id, element_id, action_id)
+    if model_bundle is not None:
+        try:
+            prediction, probability = show_ml_prediction(
+                model_bundle=model_bundle,
+                user_id=user_id,
+                element_id=element_id,
+                action_id=action_id
+            )
 
-        save_ml_prediction_log(
-            cursor=cursor,
-            activity_log_id=activity_log_id,
-            user_id=user_id,
-            element_id=element_id,
-            entity_id=DEFAULT_ENTITY_ID,
-            action_id=action_id,
-            prediction=prediction,
-            anomaly_probability=probability
-        )
+            save_ml_prediction_log(
+                cursor=cursor,
+                activity_log_id=activity_log_id,
+                user_id=user_id,
+                element_id=element_id,
+                entity_id=DEFAULT_ENTITY_ID,
+                action_id=action_id,
+                prediction=prediction,
+                anomaly_probability=probability
+            )
+
+            if prediction == 1:
+                print("[ML] Avviso: questa attività si discosta dal comportamento abituale.")
+        except Exception as e:
+            print(f"[ML] Errore durante la previsione: {e}")
     else:
         print("[ML] Nessun modello caricato. Nessuna previsione salvata.")
 
@@ -438,13 +349,11 @@ def process_action(
     print(f"Attività registrata correttamente. ID attività: {activity_log_id}")
 
 
-def action_menu(cursor, connection, model, user_id: int, element_id: int, element_name: str):
+def action_menu(cursor, connection, model_bundle, user_id: int, element_id: int, element_name: str):
     """
-    Muestra el menú de acciones para un elemento concreto y gestiona
-    la opción elegida por el usuario.
+    Muestra el menú de acciones para un elemento y gestiona la opción elegida.
 
-    Mostra il menu delle azioni per uno specifico elemento e gestisce
-    l'opzione scelta dall'utente.
+    Mostra il menu delle azioni per un elemento e gestisce l'opzione scelta.
     """
     while True:
         show_action_menu(element_name)
@@ -455,30 +364,26 @@ def action_menu(cursor, connection, model, user_id: int, element_id: int, elemen
                 print("\nRitorno al menu element...")
                 break
             case "1":
-                process_action(cursor, connection, model, user_id, element_id, "1", "visualizzazione")
+                process_action(cursor, connection, model_bundle, user_id, element_id, "1", "visualizzazione")
             case "2":
-                process_action(cursor, connection, model, user_id, element_id, "2", "creazione")
+                process_action(cursor, connection, model_bundle, user_id, element_id, "2", "creazione")
             case "3":
-                process_action(cursor, connection, model, user_id, element_id, "3", "modifica")
+                process_action(cursor, connection, model_bundle, user_id, element_id, "3", "modifica")
             case "4":
-                process_action(cursor, connection, model, user_id, element_id, "4", "eliminazione")
+                process_action(cursor, connection, model_bundle, user_id, element_id, "4", "eliminazione")
             case "5":
-                process_action(cursor, connection, model, user_id, element_id, "5", "copia")
+                process_action(cursor, connection, model_bundle, user_id, element_id, "5", "copia")
             case "6":
-                process_action(cursor, connection, model, user_id, element_id, "6", "condivisione")
+                process_action(cursor, connection, model_bundle, user_id, element_id, "6", "condivisione")
             case _:
                 print("\nOpzione non valida.")
 
 
-def element_menu(cursor, connection, model, login_log_id: int, user_id: int):
+def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: int):
     """
-    Muestra el menú de elementos disponibles.
-    Cuando el usuario selecciona uno, se abre el menú de acciones.
-    Si elige salir, se registra el logout del login actual.
+    Muestra el menú de elementos disponibles y abre el menú de acciones.
 
-    Mostra il menu degli elementi disponibili.
-    Quando l'utente ne seleziona uno, si apre il menu delle azioni.
-    Se sceglie di uscire, viene registrato il logout del login attuale.
+    Mostra il menu degli elementi disponibili e apre il menu delle azioni.
     """
     while True:
         elements = get_elements(cursor)
@@ -497,7 +402,7 @@ def element_menu(cursor, connection, model, login_log_id: int, user_id: int):
         if option in element_map:
             element_id, element_name = element_map[option]
             print(f"\nHai selezionato l'elemento: {element_name}")
-            action_menu(cursor, connection, model, user_id, element_id, element_name)
+            action_menu(cursor, connection, model_bundle, user_id, element_id, element_name)
         else:
             print("\nOpzione non valida.")
 
@@ -505,6 +410,7 @@ def element_menu(cursor, connection, model, login_log_id: int, user_id: int):
 def login_user() -> bool:
     """
     Gestiona todo el proceso de inicio de sesión.
+
     Flujo:
     1. Abre conexión a PostgreSQL.
     2. Carga el modelo ML si existe.
@@ -512,11 +418,11 @@ def login_user() -> bool:
     4. Busca al usuario por email.
     5. Comprueba si está activo.
     6. Valida la contraseña comparando hashes.
-    7. Evalúa anomalías de login según reglas.
-    8. Si el login es correcto, lo guarda en login_log.
-    9. Abre el menú de elementos.
+    7. Si el login es correcto, lo guarda en login_log.
+    8. Abre el menú de elementos.
 
     Gestisce l'intero processo di login.
+
     Flusso:
     1. Apre la connessione a PostgreSQL.
     2. Carica il modello ML se esiste.
@@ -524,9 +430,8 @@ def login_user() -> bool:
     4. Cerca l'utente tramite email.
     5. Verifica se è attivo.
     6. Valida la password confrontando gli hash.
-    7. Valuta eventuali anomalie di login secondo le regole.
-    8. Se il login è corretto, lo salva in login_log.
-    9. Apre il menu degli elementi.
+    7. Se il login è corretto, lo salva in login_log.
+    8. Apre il menu degli elementi.
     """
     connection = get_connection()
     if connection is None:
@@ -538,10 +443,10 @@ def login_user() -> bool:
         cursor = connection.cursor()
 
         try:
-            model = load_model(ML_MODEL_PATH)
+            model_bundle = load_model(str(ML_MODEL_PATH))
         except Exception:
-            model = None
-            print("Impossibile caricare il modello ML. Il sistema continuerà solo con le regole.")
+            model_bundle = None
+            print("Impossibile caricare il modello ML. Il sistema continuerà senza previsione di anomalie.")
 
         for _ in range(MAX_ATTEMPTS):
             print("\n--- LOGIN ---")
@@ -570,22 +475,11 @@ def login_user() -> bool:
                 return False
 
             if stored_password_hash == hash_password(password):
-                now = datetime.now()
-                anomaly_messages = evaluate_login_anomaly(user_id, now)
-
-                if anomaly_messages:
-                    confirmed = ask_user_confirmation(anomaly_messages)
-                    if not confirmed:
-                        save_login_log(cursor, user_id, False, attempt)
-                        connection.commit()
-                        print("Accesso annullato dall'utente.")
-                        return False
-
                 login_log_id = save_login_log(cursor, user_id, True, attempt)
                 connection.commit()
 
                 print(f"\nLogin effettuato correttamente. Benvenuto/a, {name} {surname}.")
-                element_menu(cursor, connection, model, login_log_id, user_id)
+                element_menu(cursor, connection, model_bundle, login_log_id, user_id)
                 return True
 
             save_login_log(cursor, user_id, False, attempt)
@@ -609,10 +503,8 @@ def login_user() -> bool:
 def main():
     """
     Función principal del programa.
-    Muestra el menú principal y dirige el flujo general de ejecución.
 
     Funzione principale del programma.
-    Mostra il menu principale e dirige il flusso generale di esecuzione.
     """
     while True:
         show_main_menu()

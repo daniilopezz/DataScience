@@ -1,26 +1,31 @@
 import pandas as pd
 import psycopg2
 from psycopg2 import Error
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.ensemble import IsolationForest
 import joblib
-
-from rules import evaluate_activity_anomaly
+from pathlib import Path
 
 """
 Este archivo se encarga de cargar los datos de actividad desde PostgreSQL,
-preparar las variables necesarias para el entrenamiento, etiquetar las anomalías
-según las reglas de negocio y entrenar un modelo de Random Forest para detectar
-comportamientos anómalos.
-También incluye funciones para guardar el modelo entrenado, volver a cargarlo
-desde disco y realizar predicciones sobre nuevas actividades.
+preparar las variables necesarias para el entrenamiento y entrenar modelos
+de detección de anomalías basados en el comportamiento habitual de cada usuario.
+
+La idea no es utilizar reglas fijas para marcar anomalías, sino permitir que
+el modelo aprenda qué combinaciones son normales para cada usuario y detecte
+desviaciones respecto a ese patrón aprendido.
+
+También incluye funciones para guardar los modelos entrenados, volver a
+cargarlos desde disco y realizar predicciones sobre nuevas actividades.
 
 Questo file si occupa di caricare i dati di attività da PostgreSQL,
-preparare le variabili necessarie per l'addestramento, etichettare le anomalie
-secondo le regole di business e addestrare un modello Random Forest per rilevare
-comportamenti anomali.
-Include anche funzioni per salvare il modello addestrato, ricaricarlo dal disco
+preparare le variabili necessarie per l'addestramento e addestrare modelli
+di rilevamento delle anomalie basati sul comportamento abituale di ciascun utente.
+
+L'idea non è utilizzare regole fisse per marcare le anomalie, ma permettere
+al modello di imparare quali combinazioni sono normali per ogni utente e
+rilevare deviazioni rispetto a quel comportamento appreso.
+
+Include anche funzioni per salvare i modelli addestrati, ricaricarli dal disco
 ed eseguire previsioni su nuove attività.
 """
 
@@ -32,18 +37,16 @@ DB_CONFIG = {
     "password": ""
 }
 
+MODEL_PATH = Path("models/activity_model.pkl")
+
 
 def get_connection():
     """
     Abre una conexión con PostgreSQL utilizando la configuración definida
-    en DB_CONFIG.
-    Si ocurre un error durante la conexión, muestra el mensaje por pantalla
-    y devuelve None.
+    en DB_CONFIG. Si ocurre un error, devuelve None.
 
     Apre una connessione a PostgreSQL utilizzando la configurazione definita
-    in DB_CONFIG.
-    Se si verifica un errore durante la connessione, mostra il messaggio a schermo
-    e restituisce None.
+    in DB_CONFIG. Se si verifica un errore, restituisce None.
     """
     try:
         return psycopg2.connect(**DB_CONFIG)
@@ -54,22 +57,18 @@ def get_connection():
 
 def load_activity_data() -> pd.DataFrame:
     """
-    Carga los datos de la tabla activity_log desde PostgreSQL y los devuelve
-    en un DataFrame de pandas.
-    Si la conexión falla o se produce un error durante la lectura,
-    se devuelve un DataFrame vacío.
+    Carga los datos de activity_log desde PostgreSQL y los devuelve
+    en un DataFrame.
 
-    Carica i dati della tabella activity_log da PostgreSQL e li restituisce
-    in un DataFrame pandas.
-    Se la connessione fallisce o si verifica un errore durante la lettura,
-    viene restituito un DataFrame vuoto.
+    Carica i dati di activity_log da PostgreSQL e li restituisce
+    in un DataFrame.
     """
     connection = get_connection()
     if connection is None:
         return pd.DataFrame()
 
     query = """
-        SELECT 
+        SELECT
             activity_log_id,
             user_id,
             element_id,
@@ -92,228 +91,191 @@ def load_activity_data() -> pd.DataFrame:
 
 def prepare_activity_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Prepara las variables necesarias para el entrenamiento del modelo.
+    Prepara las variables necesarias para el entrenamiento.
 
-    Pasos realizados:
-    - crea una copia del DataFrame original
-    - convierte la columna logged_at a tipo datetime
-    - extrae variables temporales:
-        - hour
-        - minute
-        - day_of_week
-    - evalúa cada fila con las reglas de negocio definidas en rules.py
-    - marca como anomalía únicamente los casos considerados anomalías fuertes
+    A partir de logged_at se generan:
+    - hour
+    - minute
+    - day_of_week
 
-    El resultado es un nuevo DataFrame con la columna adicional "anomaly".
+    No se crea ninguna etiqueta manual de anomalía, porque el objetivo
+    es que el modelo aprenda el comportamiento normal directamente
+    desde los datos.
 
-    Prepara le variabili necessarie per l'addestramento del modello.
+    Prepara le variabili necessarie per l'addestramento.
 
-    Passaggi eseguiti:
-    - crea una copia del DataFrame originale
-    - converte la colonna logged_at in tipo datetime
-    - estrae variabili temporali:
-        - hour
-        - minute
-        - day_of_week
-    - valuta ogni riga con le regole di business definite in rules.py
-    - marca come anomalia solo i casi considerati anomalie forti
+    A partire da logged_at vengono generate:
+    - hour
+    - minute
+    - day_of_week
 
-    Il risultato è un nuovo DataFrame con la colonna aggiuntiva "anomaly".
+    Non viene creata nessuna etichetta manuale di anomalia, perché
+    l'obiettivo è che il modello impari il comportamento normale
+    direttamente dai dati.
     """
     if df.empty:
         return df
 
     df = df.copy()
-
     df["logged_at"] = pd.to_datetime(df["logged_at"])
     df["hour"] = df["logged_at"].dt.hour
     df["minute"] = df["logged_at"].dt.minute
     df["day_of_week"] = df["logged_at"].dt.dayofweek
 
-    anomalies = []
-
-    for _, row in df.iterrows():
-        messages = evaluate_activity_anomaly(
-            user_id=int(row["user_id"]),
-            element_id=int(row["element_id"]),
-            entity_id=int(row["entity_id"]),
-            action_id=int(row["action_id"]),
-            dt=row["logged_at"].to_pydatetime()
-        )
-        hard_anomaly = any(msg.startswith("Anomalia:") for msg in messages)
-        anomalies.append(1 if hard_anomaly else 0)
-
-    df["anomaly"] = anomalies
     return df
 
 
-def train_activity_model(df: pd.DataFrame):
+def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Entrena un modelo Random Forest para clasificar actividades normales
-    y anómalas.
-    Flujo del proceso:
-    - comprueba si el DataFrame está vacío
-    - define las variables de entrada
-    - separa características (X) y variable objetivo (y)
-    - divide los datos en entrenamiento y prueba
-    - entrena el modelo RandomForestClassifier
-    - genera predicciones sobre el conjunto de prueba
-    - muestra métricas de evaluación por pantalla
+    Construye la matriz de variables que se utilizará en el modelo.
 
-    Devuelve:
-    - modelo entrenado
-    - X_train
-    - X_test
-    - y_train
-    - y_test
+    Se aplican variables dummificadas para capturar mejor las categorías
+    de element_id, entity_id, action_id y day_of_week.
 
-    Addestra un modello Random Forest per classificare attività normali
-    e anomale.
-    Flusso del processo:
-    - verifica se il DataFrame è vuoto
-    - definisce le variabili di input
-    - separa caratteristiche (X) e variabile target (y)
-    - divide i dati in training e test
-    - addestra il modello RandomForestClassifier
-    - genera previsioni sul set di test
-    - mostra a schermo le metriche di valutazione
+    Costruisce la matrice delle variabili che verrà utilizzata nel modello.
 
-    Restituisce:
-    - modello addestrato
-    - X_train
-    - X_test
-    - y_train
-    - y_test
+    Vengono applicate variabili dummy per catturare meglio le categorie
+    di element_id, entity_id, action_id e day_of_week.
     """
-    if df.empty:
-        print("Non ci sono dati per l'addestramento.")
-        return None, None, None, None, None
-
-    features = [
-        "user_id",
+    feature_df = df[[
         "element_id",
         "entity_id",
         "action_id",
         "hour",
         "minute",
         "day_of_week"
-    ]
+    ]].copy()
 
-    X = df[features]
-    y = df["anomaly"]
+    categorical_columns = ["element_id", "entity_id", "action_id", "day_of_week"]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.3,
-        random_state=42,
-        stratify=y
+    feature_df = pd.get_dummies(
+        feature_df,
+        columns=categorical_columns,
+        prefix=categorical_columns,
+        dtype=int
     )
 
-    model = RandomForestClassifier(
-        n_estimators=100,
-        random_state=42,
-        max_features="sqrt"
-    )
-
-    model.fit(X_train, y_train)
-
-    y_pred = model.predict(X_test)
-
-    print("=== RISULTATI DEL MODELLO ACTIVITY ===")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("\nClassification report:")
-    print(classification_report(y_test, y_pred))
-    print("\nConfusion matrix:")
-    print(confusion_matrix(y_test, y_pred))
-
-    return model, X_train, X_test, y_train, y_test
+    return feature_df
 
 
-def save_model(model, path: str = "activity_model.pkl"):
+def train_activity_model(df: pd.DataFrame, contamination: float = 0.05):
     """
-    Guarda el modelo entrenado en disco utilizando joblib.
-    Parámetros:
-    - model: modelo ya entrenado
-    - path: ruta y nombre del archivo de salida
+    Entrena un modelo de detección de anomalías por cada usuario.
 
-    Salva il modello addestrato su disco utilizzando joblib.
-    Parametri:
-    - model: modello già addestrato
-    - path: percorso e nome del file di output
+    Para cada user_id:
+    - filtra sus actividades
+    - construye su matriz de variables
+    - entrena un IsolationForest
+    - guarda también las columnas utilizadas en el entrenamiento
+
+    Devuelve un diccionario con esta estructura:
+    {
+        user_id: {
+            "model": modelo_entrenado,
+            "feature_columns": columnas_entrenadas
+        }
+    }
+
+    Addestra un modello di rilevamento anomalie per ogni utente.
+
+    Per ogni user_id:
+    - filtra le sue attività
+    - costruisce la sua matrice di variabili
+    - addestra un IsolationForest
+    - salva anche le colonne utilizzate durante l'addestramento
+
+    Restituisce un dizionario con questa struttura:
+    {
+        user_id: {
+            "model": modello addestrato,
+            "feature_columns": colonne addestrate
+        }
+    }
     """
-    joblib.dump(model, path)
-    print(f"Modello salvato in: {path}")
+    if df.empty:
+        print("Non ci sono dati per l'addestramento.")
+        return None
+
+    user_models = {}
+    user_ids = sorted(df["user_id"].dropna().unique())
+
+    for user_id in user_ids:
+        user_df = df[df["user_id"] == user_id].copy()
+
+        if user_df.empty:
+            continue
+
+        X_user = build_feature_matrix(user_df)
+
+        if X_user.shape[0] < 10:
+            print(f"Utente {user_id}: dati insufficienti per addestrare il modello.")
+            continue
+
+        model = IsolationForest(
+            n_estimators=200,
+            contamination=contamination,
+            random_state=42
+        )
+
+        model.fit(X_user)
+
+        predictions = model.predict(X_user)
+        anomaly_count = int((predictions == -1).sum())
+
+        user_models[int(user_id)] = {
+            "model": model,
+            "feature_columns": list(X_user.columns)
+        }
+
+        print(
+            f"Utente {int(user_id)} -> attività: {len(user_df)} | "
+            f"anomalia stimate nel training: {anomaly_count}"
+        )
+
+    if not user_models:
+        print("Nessun modello è stato addestrato.")
+        return None
+
+    return user_models
 
 
-def load_model(path: str = "activity_model.pkl"):
+def save_model(model_bundle, path: str = str(MODEL_PATH)):
     """
-    Carga desde disco un modelo previamente guardado con joblib.
-    Parámetros:
-    - path: ruta del archivo del modelo
+    Guarda en disco el conjunto de modelos entrenados.
 
-    Devuelve el modelo cargado.
+    Salva su disco l'insieme dei modelli addestrati.
+    """
+    path_obj = Path(path)
+    path_obj.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model_bundle, path_obj)
+    print(f"Modelli salvati in: {path_obj}")
 
-    Carica da disco un modello precedentemente salvato con joblib.
-    Parametri:
-    - path: percorso del file del modello
 
-    Restituisce il modello caricato.
+def load_model(path: str = str(MODEL_PATH)):
+    """
+    Carga desde disco el conjunto de modelos entrenados.
+
+    Carica da disco l'insieme dei modelli addestrati.
     """
     return joblib.load(path)
 
 
-def predict_activity_with_model(
-    model,
-    user_id: int,
+def build_single_row_features(
     element_id: int,
     entity_id: int,
     action_id: int,
     logged_at
-):
+) -> pd.DataFrame:
     """
-    Realiza una predicción individual utilizando el modelo ya entrenado.
-    A partir de los datos de entrada:
-    - user_id
-    - element_id
-    - entity_id
-    - action_id
-    - logged_at
-    construye una fila con las mismas variables utilizadas en el entrenamiento:
-    - user_id
-    - element_id
-    - entity_id
-    - action_id
-    - hour
-    - minute
-    - day_of_week
-    Devuelve:
-    - prediction: clase predicha
-    - probability: probabilidad estimada de anomalía si el modelo soporta predict_proba
+    Construye una fila de variables con el mismo formato lógico usado
+    durante el entrenamiento.
 
-    Esegue una previsione singola utilizzando il modello già addestrato.
-    A partire dai dati di input:
-    - user_id
-    - element_id
-    - entity_id
-    - action_id
-    - logged_at
-    costruisce una riga con le stesse variabili utilizzate durante l'addestramento:
-    - user_id
-    - element_id
-    - entity_id
-    - action_id
-    - hour
-    - minute
-    - day_of_week
-    Restituisce:
-    - prediction: classe predetta
-    - probability: probabilità stimata di anomalia se il modello supporta predict_proba
+    Costruisce una riga di variabili con lo stesso formato logico usato
+    durante l'addestramento.
     """
     logged_at = pd.to_datetime(logged_at)
 
     row = pd.DataFrame([{
-        "user_id": user_id,
         "element_id": element_id,
         "entity_id": entity_id,
         "action_id": action_id,
@@ -322,14 +284,107 @@ def predict_activity_with_model(
         "day_of_week": logged_at.dayofweek
     }])
 
-    prediction = model.predict(row)[0]
+    return build_feature_matrix(row)
 
-    if hasattr(model, "predict_proba"):
-        probability = model.predict_proba(row)[0][1]
-    else:
-        probability = None
 
-    return prediction, probability
+def align_features_to_training(row_features: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+    """
+    Alinea una fila de inferencia con las columnas exactas usadas
+    durante el entrenamiento del modelo.
+
+    Si falta alguna columna, se rellena con 0.
+    Si sobra alguna, se elimina.
+
+    Allinea una riga di inferenza con le colonne esatte usate
+    durante l'addestramento del modello.
+
+    Se manca qualche colonna, viene riempita con 0.
+    Se ce n'è qualcuna in più, viene eliminata.
+    """
+    aligned = row_features.copy()
+
+    for column in feature_columns:
+        if column not in aligned.columns:
+            aligned[column] = 0
+
+    aligned = aligned[feature_columns]
+    return aligned
+
+
+def predict_activity_with_model(
+    model_bundle,
+    user_id: int,
+    element_id: int,
+    entity_id: int,
+    action_id: int,
+    logged_at
+):
+    """
+    Realiza una predicción individual para una actividad concreta.
+
+    Como se trabaja con un modelo por usuario:
+    - busca el modelo correspondiente al user_id
+    - construye la fila de variables
+    - alinea las columnas con las usadas en entrenamiento
+    - devuelve si la actividad parece normal o anómala
+
+    Convención de salida:
+    - prediction = 1  -> actividad anómala
+    - prediction = 0  -> actividad normal
+    - probability     -> score normalizado de anomalía entre 0 y 1
+
+    Esegue una previsione singola per una specifica attività.
+
+    Siccome si lavora con un modello per utente:
+    - cerca il modello corrispondente al user_id
+    - costruisce la riga di variabili
+    - allinea le colonne con quelle usate in addestramento
+    - restituisce se l'attività sembra normale o anomala
+
+    Convenzione di output:
+    - prediction = 1  -> attività anomala
+    - prediction = 0  -> attività normale
+    - probability     -> score normalizzato di anomalia tra 0 e 1
+    """
+    if model_bundle is None:
+        raise ValueError("Il bundle dei modelli è vuoto.")
+
+    user_id = int(user_id)
+
+    if user_id not in model_bundle:
+        raise ValueError(f"Nessun modello trovato per user_id={user_id}")
+
+    user_model_data = model_bundle[user_id]
+    model = user_model_data["model"]
+    feature_columns = user_model_data["feature_columns"]
+
+    row_features = build_single_row_features(
+        element_id=element_id,
+        entity_id=entity_id,
+        action_id=action_id,
+        logged_at=logged_at
+    )
+
+    row_aligned = align_features_to_training(row_features, feature_columns)
+
+    raw_prediction = model.predict(row_aligned)[0]
+    raw_score = float(model.decision_function(row_aligned)[0])
+
+    # En IsolationForest:
+    #  1  -> normal
+    # -1  -> anómalo
+    prediction = 1 if raw_prediction == -1 else 0
+
+    # Convertimos el decision_function en un score de anomalía:
+    # cuanto más negativo sea raw_score, más anómalo es el caso.
+    anomaly_score = max(0.0, -raw_score)
+
+    # Lo normalizamos a un rango [0, 1] de forma estable.
+    # Casos normales cercanos a 0.
+    # Casos anómalos, más cerca de 1.
+    probability = anomaly_score / (1.0 + anomaly_score)
+
+    return prediction, float(probability)
 
 
 if __name__ == "__main__":
@@ -341,12 +396,8 @@ if __name__ == "__main__":
     df_prepared = prepare_activity_features(df)
     print("Shape preparata:", df_prepared.shape)
 
-    if not df_prepared.empty:
-        print("\nDistribuzione delle anomalie:")
-        print(df_prepared["anomaly"].value_counts())
+    print("Addestramento dei modelli per utente...")
+    model_bundle = train_activity_model(df_prepared, contamination=0.05)
 
-    print("Addestramento del modello...")
-    model, X_train, X_test, y_train, y_test = train_activity_model(df_prepared)
-
-    if model is not None:
-        save_model(model)
+    if model_bundle is not None:
+        save_model(model_bundle)

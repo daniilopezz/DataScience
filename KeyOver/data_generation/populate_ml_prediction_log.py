@@ -1,9 +1,41 @@
+import sys
+from pathlib import Path
+
 import pandas as pd
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import execute_batch
 
+# Añadimos la raíz del proyecto al path para poder importar ml_model.py
+# también cuando este archivo se ejecuta directamente desde data_generation/.
+#
+# Aggiungiamo la radice del progetto al path per poter importare ml_model.py
+# anche quando questo file viene eseguito direttamente da data_generation/.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from ml_model import load_model, predict_activity_with_model
+
+"""
+Este archivo realiza el backfill de la tabla ml_prediction_log.
+
+Su función es recorrer todas las actividades ya almacenadas en activity_log,
+aplicar el modelo de machine learning sobre cada una de ellas y guardar
+el resultado de la predicción en la tabla ml_prediction_log.
+
+En esta versión, el modelo trabaja con un enfoque de detección de anomalías
+basado en el comportamiento habitual de cada usuario.
+
+Questo file esegue il backfill della tabella ml_prediction_log.
+
+La sua funzione è scorrere tutte le attività già memorizzate in activity_log,
+applicare il modello di machine learning su ciascuna di esse e salvare
+il risultato della previsione nella tabella ml_prediction_log.
+
+In questa versione, il modello lavora con un approccio di rilevamento anomalie
+basato sul comportamento abituale di ciascun utente.
+"""
 
 DB_CONFIG = {
     "host": "localhost",
@@ -13,18 +45,16 @@ DB_CONFIG = {
     "password": ""
 }
 
-MODEL_PATH = "activity_model.pkl"
+MODEL_PATH = PROJECT_ROOT / "models" / "activity_model.pkl"
 
 
 def get_connection():
     """
-    Abre una conexión con la base de datos PostgreSQL utilizando la configuración
-    definida en DB_CONFIG.
-    Si la conexión falla, muestra un mensaje de error y devuelve None.
+    Abre una conexión con PostgreSQL utilizando la configuración definida
+    en DB_CONFIG. Si falla, devuelve None.
 
-    Apre una connessione al database PostgreSQL utilizzando la configurazione
-    definita in DB_CONFIG.
-    Se la connessione fallisce, mostra un messaggio di errore e restituisce None.
+    Apre una connessione a PostgreSQL utilizzando la configurazione definita
+    in DB_CONFIG. Se fallisce, restituisce None.
     """
     try:
         return psycopg2.connect(**DB_CONFIG)
@@ -35,8 +65,9 @@ def get_connection():
 
 def load_activity_data() -> pd.DataFrame:
     """
-    Carga todas las actividades almacenadas en la tabla activity_log.
-    La consulta recupera:
+    Carga todas las actividades almacenadas en activity_log.
+
+    Devuelve un DataFrame con:
     - activity_log_id
     - user_id
     - element_id
@@ -44,21 +75,15 @@ def load_activity_data() -> pd.DataFrame:
     - action_id
     - logged_at
 
-    Los registros se devuelven ordenados por activity_log_id.
-    Si ocurre un error o no se puede abrir la conexión, devuelve un DataFrame vacío.
+    Carica tutte le attività memorizzate in activity_log.
 
-
-    Carica tutte le attività memorizzate nella tabella activity_log.
-    La query recupera:
+    Restituisce un DataFrame con:
     - activity_log_id
     - user_id
     - element_id
     - entity_id
     - action_id
     - logged_at
-
-    I record vengono restituiti ordinati per activity_log_id.
-    Se si verifica un errore o non è possibile aprire la connessione, restituisce un DataFrame vuoto.
     """
     connection = get_connection()
     if connection is None:
@@ -86,51 +111,53 @@ def load_activity_data() -> pd.DataFrame:
         connection.close()
 
 
-def build_prediction_rows(df: pd.DataFrame, model):
+def build_prediction_rows(df: pd.DataFrame, model_bundle):
     """
-    Recorre todas las filas del DataFrame de actividades y genera la estructura
-    de datos que posteriormente será insertada en la tabla ml_prediction_log.
+    Recorre todas las actividades y construye las filas que se insertarán
+    en ml_prediction_log.
+
     Para cada actividad:
-    - llama al modelo de machine learning
-    - obtiene la predicción de anomalía
-    - obtiene la probabilidad asociada
-    - construye una tupla con los valores necesarios para la inserción
+    - llama al modelo correspondiente al usuario
+    - obtiene la predicción
+    - obtiene el score de anomalía
+    - construye una tupla lista para insertar
 
-    Además, cada 1000 registros procesados muestra un mensaje informativo
-    por pantalla.
+    Scorre tutte le attività e costruisce le righe che verranno inserite
+    in ml_prediction_log.
 
-    Scorre tutte le righe del DataFrame delle attività e genera la struttura
-    dei dati che successivamente verrà inserita nella tabella ml_prediction_log.
     Per ogni attività:
-    - richiama il modello di machine learning
-    - ottiene la previsione di anomalia
-    - ottiene la probabilità associata
-    - costruisce una tupla con i valori necessari per l'inserimento
-
-    Inoltre, ogni 1000 record elaborati mostra un messaggio informativo
-    a schermo.
+    - richiama il modello corrispondente all'utente
+    - ottiene la previsione
+    - ottiene lo score di anomalia
+    - costruisce una tupla pronta per l'inserimento
     """
     rows = []
 
     for i, row in df.iterrows():
-        prediction, probability = predict_activity_with_model(
-            model=model,
-            user_id=int(row["user_id"]),
-            element_id=int(row["element_id"]),
-            entity_id=int(row["entity_id"]),
-            action_id=int(row["action_id"]),
-            logged_at=row["logged_at"]
-        )
+        try:
+            prediction, probability = predict_activity_with_model(
+                model_bundle=model_bundle,
+                user_id=int(row["user_id"]),
+                element_id=int(row["element_id"]),
+                entity_id=int(row["entity_id"]),
+                action_id=int(row["action_id"]),
+                logged_at=row["logged_at"]
+            )
 
-        rows.append((
-            int(row["activity_log_id"]),
-            int(row["user_id"]),
-            int(row["element_id"]),
-            int(row["entity_id"]),
-            int(row["action_id"]),
-            bool(prediction),
-            float(probability) if probability is not None else None
-        ))
+            rows.append((
+                int(row["activity_log_id"]),
+                int(row["user_id"]),
+                int(row["element_id"]),
+                int(row["entity_id"]),
+                int(row["action_id"]),
+                bool(prediction),
+                float(probability) if probability is not None else None
+            ))
+
+        except Exception as e:
+            print(
+                f"Errore nella previsione per activity_log_id={int(row['activity_log_id'])}: {e}"
+            )
 
         if (i + 1) % 1000 == 0:
             print(f"Previsioni preparate: {i + 1}")
@@ -140,47 +167,19 @@ def build_prediction_rows(df: pd.DataFrame, model):
 
 def clear_ml_prediction_log(cursor):
     """
-    Vacía completamente la tabla ml_prediction_log y reinicia su contador
-    de identidad.
-    Esto permite reconstruir el contenido desde cero antes de insertar
-    las nuevas predicciones generadas por el modelo.
+    Vacía completamente la tabla ml_prediction_log y reinicia su identidad.
 
-    Svuota completamente la tabella ml_prediction_log e riavvia il relativo
-    contatore di identità.
-    Questo permette di ricostruire il contenuto da zero prima di inserire
-    le nuove previsioni generate dal modello.
+    Svuota completamente la tabella ml_prediction_log e riavvia l'identità.
     """
     query = "TRUNCATE TABLE ml_prediction_log RESTART IDENTITY;"
     cursor.execute(query)
 
 
-def insert_prediction_rows(cursor, rows):
+def insert_prediction_rows(cursor, rows: list[tuple]):
     """
-    Inserta por lotes todas las filas de predicción en la tabla ml_prediction_log.
-    Cada fila contiene:
-    - identificador de actividad
-    - usuario
-    - elemento
-    - entidad
-    - acción
-    - predicción de anomalía
-    - probabilidad de anomalía
-    - fecha de creación generada automáticamente con CURRENT_TIMESTAMP
+    Inserta por lotes todas las predicciones generadas en ml_prediction_log.
 
-    Se utiliza execute_batch para mejorar el rendimiento en inserciones masivas.
-
-    Inserisce in batch tutte le righe di previsione nella tabella ml_prediction_log.
-    Ogni riga contiene:
-    - identificativo dell'attività
-    - utente
-    - elemento
-    - entità
-    - azione
-    - previsione di anomalia
-    - probabilità di anomalia
-    - data di creazione generata automaticamente con CURRENT_TIMESTAMP
-
-    Viene utilizzato execute_batch per migliorare le prestazioni nelle inserzioni massive.
+    Inserisce in batch tutte le previsioni generate in ml_prediction_log.
     """
     query = """
         INSERT INTO ml_prediction_log (
@@ -200,32 +199,22 @@ def insert_prediction_rows(cursor, rows):
 
 def main():
     """
-    Función principal del proceso de backfill de predicciones.
-    Flujo de ejecución:
-    1. Carga el modelo entrenado desde disco.
-    2. Carga todas las actividades desde activity_log.
-    3. Comprueba si existen actividades para procesar.
-    4. Genera las predicciones con el modelo.
-    5. Abre una conexión con la base de datos.
-    6. Vacía la tabla ml_prediction_log.
-    7. Inserta las nuevas predicciones generadas.
-    8. Confirma la transacción si todo sale bien.
-    9. En caso de error, realiza rollback.
+    Flujo principal del backfill:
+    1. Carga el bundle de modelos desde disco.
+    2. Carga las actividades desde activity_log.
+    3. Genera las predicciones.
+    4. Vacía ml_prediction_log.
+    5. Inserta las nuevas predicciones.
 
-    Funzione principale del processo di backfill delle previsioni.
-    Flusso di esecuzione:
-    1. Carica il modello addestrato dal disco.
-    2. Carica tutte le attività da activity_log.
-    3. Verifica se esistono attività da elaborare.
-    4. Genera le previsioni con il modello.
-    5. Apre una connessione con il database.
-    6. Svuota la tabella ml_prediction_log.
-    7. Inserisce le nuove previsioni generate.
-    8. Conferma la transazione se tutto va bene.
-    9. In caso di errore, esegue il rollback.
+    Flusso principale del backfill:
+    1. Carica il bundle dei modelli dal disco.
+    2. Carica le attività da activity_log.
+    3. Genera le previsioni.
+    4. Svuota ml_prediction_log.
+    5. Inserisce le nuove previsioni.
     """
     print("Caricamento del modello...")
-    model = load_model(MODEL_PATH)
+    model_bundle = load_model(str(MODEL_PATH))
 
     print("Caricamento di activity_log...")
     df = load_activity_data()
@@ -237,7 +226,11 @@ def main():
     print(f"Attività caricate: {df.shape[0]}")
 
     print("Generazione delle previsioni...")
-    prediction_rows = build_prediction_rows(df, model)
+    prediction_rows = build_prediction_rows(df, model_bundle)
+
+    if not prediction_rows:
+        print("Nessuna previsione valida da inserire.")
+        return
 
     connection = get_connection()
     if connection is None:
