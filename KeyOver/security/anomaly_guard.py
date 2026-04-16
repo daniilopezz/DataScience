@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from ml_model import load_model, predict_activity_with_model
+from MachineLearning.ml_model import load_model, predict_activity_with_model
 
 """
 Este archivo centraliza la lógica de control de anomalías del sistema.
@@ -34,7 +34,7 @@ La sua funzione è:
 ACTIVITY_MODEL_PATH = PROJECT_ROOT / "models" / "activity_model.pkl"
 
 # Umbral para bloqueo de actividad.
-ACTIVITY_ANOMALY_THRESHOLD = 0.002
+ACTIVITY_ANOMALY_THRESHOLD = 0.002 
 
 # Umbral horario para login:
 # si el acceso cae demasiado lejos de la media habitual del usuario,

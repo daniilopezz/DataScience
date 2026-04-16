@@ -1,5 +1,6 @@
 import joblib
 from pathlib import Path
+import sys
 
 """
 Este archivo sirve para cargar y revisar el contenido del fichero .pkl
@@ -25,7 +26,11 @@ L'obiettivo di questo script è verificare:
 - quali colonne sono state usate durante l'addestramento
 """
 
-MODEL_PATH = Path("models/activity_model.pkl")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+MODEL_PATH = PROJECT_ROOT / 'models' / 'activity_model.pkl'
 
 
 def load_model_bundle(path: str | Path = MODEL_PATH):

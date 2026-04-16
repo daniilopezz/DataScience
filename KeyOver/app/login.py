@@ -28,7 +28,6 @@ from security.anomaly_guard import (
 Este archivo gestiona el flujo principal de interacción con la aplicación:
 inicio de sesión, registro de accesos, selección de elementos, ejecución de acciones
 y control de anomalías.
-
 En esta versión:
 - el login se evalúa usando un perfil histórico del usuario
 - las actividades se evalúan usando el modelo de machine learning
@@ -38,7 +37,6 @@ En esta versión:
 Questo file gestisce il flusso principale di interazione con l'applicazione:
 login, registrazione degli accessi, selezione degli elementi, esecuzione delle azioni
 e controllo delle anomalie.
-
 In questa versione:
 - il login viene valutato usando un profilo storico dell'utente
 - le attività vengono valutate usando il modello di machine learning
@@ -236,6 +234,7 @@ def load_login_history_df(connection) -> pd.DataFrame:
 
     return pd.DataFrame(rows, columns=columns)
 
+
 def show_main_menu():
     """
     Muestra el menú principal del programa.
@@ -298,39 +297,24 @@ def process_action(
     """
     Procesa una acción del usuario sobre un elemento.
 
-    Flujo:
-    1. Guarda la actividad en activity_log.
-    2. Evalúa la actividad con el modelo.
-    3. Guarda la predicción en ml_prediction_log.
-    4. Si la acción es anómala, cierra la sesión y vuelve al menú principal.
+    Nuevo flujo:
+    1. Evalúa primero la actividad con el modelo ML.
+    2. Si la acción es anómala, cierra la sesión inmediatamente y NO guarda la actividad.
+    3. Si no es anómala, guarda la actividad en activity_log.
+    4. Guarda la predicción en ml_prediction_log.
+    5. Devuelve si la sesión puede continuar.
 
-    Devuelve:
-    - True si la sesión puede continuar
-    - False si la sesión ha sido cerrada
-
-    Elabora un'azione dell'utente su un elemento.
-
-    Flusso:
-    1. Salva l'attività in activity_log.
-    2. Valuta l'attività con il modello.
-    3. Salva la previsione in ml_prediction_log.
-    4. Se l'azione è anomala, chiude la sessione e torna al menu principale.
-
-    Restituisce:
-    - True se la sessione può continuare
-    - False se la sessione è stata chiusa
+    Nuovo flusso:
+    1. Valuta prima l'attività con il modello ML.
+    2. Se l'azione è anomala, chiude immediatamente la sessione e NON salva l'attività.
+    3. Se non è anomala, salva l'attività in activity_log.
+    4. Salva la previsione in ml_prediction_log.
+    5. Restituisce se la sessione può continuare.
     """
     action_id = ACTION_IDS[action_option]
 
-    print(f"\nStai eseguendo l'azione: {action_text}.")
-    activity_log_id = save_activity_log(
-        cursor=cursor,
-        user_id=user_id,
-        action_id=action_id,
-        element_id=element_id,
-        entity_id=DEFAULT_ENTITY_ID
-    )
-
+    # Primero evaluamos la acción con el modelo, antes de guardar nada.
+    # Valutiamo prima l'azione con il modello, prima di salvare qualsiasi cosa.
     if model_bundle is not None:
         try:
             result = evaluate_activity_with_model(
@@ -341,12 +325,33 @@ def process_action(
                 action_id=action_id
             )
 
+            print(f"\nStai tentando di eseguire l'azione: {action_text}.")
             print(
                 f"[ML] Previsione del modello: "
                 f"{'attività anomala' if result['prediction'] == 1 else 'attività normale'}."
             )
             print(f"[ML] Score stimato di anomalia: {result['anomaly_score']:.6f}")
 
+            # Si el modelo considera la acción anómala, cerramos inmediatamente la sesión.
+            # Se il modello considera l'azione anomala, chiudiamo immediatamente la sessione.
+            if result["is_anomalous"]:
+                print(f"\n{result['message']}")
+                print("Logout automatico eseguito.")
+                force_logout_due_to_anomaly(cursor, connection, login_log_id)
+                return False
+
+            # Si no es anómala, entonces la guardamos en activity_log.
+            # Se non è anomala, allora la salviamo in activity_log.
+            activity_log_id = save_activity_log(
+                cursor=cursor,
+                user_id=user_id,
+                action_id=action_id,
+                element_id=element_id,
+                entity_id=DEFAULT_ENTITY_ID
+            )
+
+            # Guardamos también la predicción del modelo asociada a la actividad.
+            # Salviamo anche la previsione del modello associata all'attività.
             save_ml_prediction_log(
                 cursor=cursor,
                 activity_log_id=activity_log_id,
@@ -359,20 +364,26 @@ def process_action(
             )
 
             connection.commit()
-
-            if result["is_anomalous"]:
-                print(f"\n{result['message']}")
-                print("Logout automatico eseguito.")
-                force_logout_due_to_anomaly(cursor, connection, login_log_id)
-                return False
+            print(f"Attività registrata correttamente. ID attività: {activity_log_id}")
+            return True
 
         except Exception as e:
-            connection.commit()
+            connection.rollback()
             print(f"[ML] Errore durante la previsione: {e}")
-    else:
-        connection.commit()
-        print("[ML] Nessun modello caricato. Nessuna previsione salvata.")
+            return False
 
+    # Si no hay modelo, permitimos la acción y solo guardamos la actividad.
+    # Se non c'è il modello, consentiamo l'azione e salviamo solo l'attività.
+    print(f"\nStai eseguendo l'azione: {action_text}.")
+    activity_log_id = save_activity_log(
+        cursor=cursor,
+        user_id=user_id,
+        action_id=action_id,
+        element_id=element_id,
+        entity_id=DEFAULT_ENTITY_ID
+    )
+    connection.commit()
+    print("[ML] Nessun modello caricato. Nessuna previsione salvata.")
     print(f"Attività registrata correttamente. ID attività: {activity_log_id}")
     return True
 
@@ -407,27 +418,57 @@ def action_menu(
             case "0":
                 print("\nRitorno al menu element...")
                 return True
+
             case "1":
-                if not process_action(cursor, connection, model_bundle, login_log_id, user_id, element_id, "1", "visualizzazione"):
+                session_still_active = process_action(
+                    cursor, connection, model_bundle, login_log_id,
+                    user_id, element_id, "1", "visualizzazione"
+                )
+                if not session_still_active:
                     return False
+
             case "2":
-                if not process_action(cursor, connection, model_bundle, login_log_id, user_id, element_id, "2", "creazione"):
+                session_still_active = process_action(
+                    cursor, connection, model_bundle, login_log_id,
+                    user_id, element_id, "2", "creazione"
+                )
+                if not session_still_active:
                     return False
+
             case "3":
-                if not process_action(cursor, connection, model_bundle, login_log_id, user_id, element_id, "3", "modifica"):
+                session_still_active = process_action(
+                    cursor, connection, model_bundle, login_log_id,
+                    user_id, element_id, "3", "modifica"
+                )
+                if not session_still_active:
                     return False
+
             case "4":
-                if not process_action(cursor, connection, model_bundle, login_log_id, user_id, element_id, "4", "eliminazione"):
+                session_still_active = process_action(
+                    cursor, connection, model_bundle, login_log_id,
+                    user_id, element_id, "4", "eliminazione"
+                )
+                if not session_still_active:
                     return False
+
             case "5":
-                if not process_action(cursor, connection, model_bundle, login_log_id, user_id, element_id, "5", "copia"):
+                session_still_active = process_action(
+                    cursor, connection, model_bundle, login_log_id,
+                    user_id, element_id, "5", "copia"
+                )
+                if not session_still_active:
                     return False
+
             case "6":
-                if not process_action(cursor, connection, model_bundle, login_log_id, user_id, element_id, "6", "condivisione"):
+                session_still_active = process_action(
+                    cursor, connection, model_bundle, login_log_id,
+                    user_id, element_id, "6", "condivisione"
+                )
+                if not session_still_active:
                     return False
+
             case _:
                 print("\nOpzione non valida.")
-
 
 def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: int):
     """
@@ -549,7 +590,7 @@ def login_user() -> bool:
                 login_result = evaluate_login_with_profile(
                     login_profiles=login_profiles,
                     user_id=int(user_id),
-                    logged_at = datetime.now()
+                    logged_at=datetime.now()
                 )
 
                 if login_result["is_anomalous"]:

@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from ml_model import load_model, predict_activity_with_model
+from MachineLearning.ml_model import load_model, predict_activity_with_model
 
 """
 Este archivo realiza el backfill de la tabla ml_prediction_log.

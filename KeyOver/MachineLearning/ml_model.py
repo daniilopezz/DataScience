@@ -4,6 +4,7 @@ from psycopg2 import Error
 from sklearn.ensemble import IsolationForest
 import joblib
 from pathlib import Path
+import sys
 
 """
 Este archivo se encarga de cargar los datos de actividad desde PostgreSQL,
@@ -37,7 +38,11 @@ DB_CONFIG = {
     "password": ""
 }
 
-MODEL_PATH = Path("models/activity_model.pkl")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+MODEL_PATH = PROJECT_ROOT / 'models' / 'activity_model.pkl'
 
 
 def get_connection():
