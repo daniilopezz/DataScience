@@ -2,27 +2,23 @@ from datetime import datetime, time
 
 """
 Este archivo define las reglas de negocio de referencia del proyecto.
-
 Estas reglas describen el comportamiento esperado de cada usuario en términos de:
 - horario habitual
 - tolerancia horaria
 - elementos permitidos
 - entidades permitidas
 - acciones permitidas
-
 Aunque el modelo de machine learning final no utilice estas reglas para detectar
 anomalías en tiempo real, este archivo sigue siendo útil como documentación
 funcional y como apoyo para la generación de datos sintéticos.
 
 Questo file definisce le regole di business di riferimento del progetto.
-
 Queste regole descrivono il comportamento atteso di ciascun utente in termini di:
 - orario abituale
 - tolleranza oraria
 - elementi consentiti
 - entità consentite
 - azioni consentite
-
 Anche se il modello finale di machine learning non utilizza queste regole per
 rilevare anomalie in tempo reale, questo file rimane utile come documentazione
 funzionale e come supporto per la generazione di dati sintetici.
@@ -102,11 +98,9 @@ def is_weekday(dt: datetime) -> bool:
 def is_within_main_schedule(user_id: int, dt: datetime) -> bool:
     """
     Comprueba si el usuario está dentro de su horario habitual principal.
-
     Si el usuario no tiene un horario definido, se considera válido.
 
     Controlla se l'utente rientra nel proprio orario abituale principale.
-
     Se l'utente non ha un orario definito, viene considerato valido.
     """
     if user_id not in USER_SCHEDULES:
@@ -122,16 +116,12 @@ def is_within_tolerance_schedule(user_id: int, dt: datetime) -> bool:
     """
     Comprueba si la fecha y hora están dentro de la franja permitida
     incluyendo la tolerancia del usuario.
-
     Se convierte cada hora a minutos para facilitar la comparación.
-
     Si el usuario no tiene un horario definido, se considera válido.
 
     Controlla se la data e l'ora rientrano nella fascia consentita
     includendo la tolleranza dell'utente.
-
     Ogni orario viene convertito in minuti per facilitare il confronto.
-
     Se l'utente non ha un orario definito, viene considerato valido.
     """
     if user_id not in USER_SCHEDULES:
@@ -150,11 +140,9 @@ def is_within_tolerance_schedule(user_id: int, dt: datetime) -> bool:
 def is_allowed_element(user_id: int, element_id: int) -> bool:
     """
     Comprueba si el elemento indicado está permitido para el usuario.
-
     Si el usuario no tiene restricciones definidas, se considera válido.
 
     Controlla se l'elemento indicato è consentito per l'utente.
-
     Se l'utente non ha restrizioni definite, viene considerato valido.
     """
     if user_id not in ALLOWED_ELEMENTS:
@@ -166,11 +154,9 @@ def is_allowed_element(user_id: int, element_id: int) -> bool:
 def is_allowed_entity(user_id: int, entity_id: int) -> bool:
     """
     Comprueba si la entidad indicada está permitida para el usuario.
-
     Si el usuario no tiene restricciones definidas, se considera válido.
 
-    Controlla se l'entità indicata è consentita per l'utente.
-
+    Controlla se l'entità indicata è consentita per l'utente. 
     Se l'utente non ha restrizioni definite, viene considerato valido.
     """
     if user_id not in ALLOWED_ENTITIES:
@@ -182,11 +168,9 @@ def is_allowed_entity(user_id: int, entity_id: int) -> bool:
 def is_allowed_action(user_id: int, action_id: int) -> bool:
     """
     Comprueba si la acción indicada está permitida para el usuario.
-
     Si el usuario no tiene restricciones definidas, se considera válida.
 
     Controlla se l'azione indicata è consentita per l'utente.
-
     Se l'utente non ha restrizioni definite, viene considerata valida.
     """
     if user_id not in ALLOWED_ACTIONS:
@@ -198,13 +182,11 @@ def is_allowed_action(user_id: int, action_id: int) -> bool:
 def evaluate_login_anomaly(user_id: int, dt: datetime) -> list[str]:
     """
     Evalúa si un evento de login incumple alguna de las reglas de referencia.
-
     Devuelve una lista de mensajes:
     - "Anomalia: ..." para incumplimientos fuertes
     - "Avviso: ..." para casos fuera del horario principal pero dentro de tolerancia
 
     Valuta se un evento di login viola una delle regole di riferimento.
-
     Restituisce una lista di messaggi:
     - "Anomalia: ..." per violazioni forti
     - "Avviso: ..." per casi fuori dall'orario principale ma entro la tolleranza
@@ -231,13 +213,11 @@ def evaluate_activity_anomaly(
 ) -> list[str]:
     """
     Evalúa si una actividad incumple alguna de las reglas de referencia.
-
     Devuelve una lista de mensajes:
     - "Anomalia: ..." para incumplimientos fuertes
     - "Avviso: ..." para casos tolerados pero fuera del patrón principal
 
     Valuta se un'attività viola una delle regole di riferimento.
-
     Restituisce una lista di messaggi:
     - "Anomalia: ..." per violazioni forti
     - "Avviso: ..." per casi tollerati ma fuori dal pattern principale

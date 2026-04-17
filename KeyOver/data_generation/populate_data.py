@@ -9,21 +9,17 @@ from psycopg2.extras import execute_batch
 """
 Este archivo genera datos sintéticos para las tablas login_log y activity_log,
 siguiendo patrones de comportamiento definidos para cada usuario.
-
 El objetivo es construir un dataset coherente con los hábitos normales de uso,
 introduciendo también un pequeño porcentaje de casos anómalos para que el modelo
 pueda entrenarse y probarse sobre ejemplos más realistas.
-
 En este caso, las reglas no se utilizan para detectar anomalías en tiempo real,
 sino como referencia para construir datos sintéticos con sentido.
 
 Questo file genera dati sintetici per le tabelle login_log e activity_log,
 seguendo pattern di comportamento definiti per ciascun utente.
-
 L'obiettivo è costruire un dataset coerente con le abitudini normali di utilizzo,
 introducendo anche una piccola percentuale di casi anomali affinché il modello
 possa essere addestrato e testato su esempi più realistici.
-
 In questo caso, le regole non vengono utilizzate per rilevare anomalie in tempo reale,
 ma come riferimento per costruire dati sintetici sensati.
 """
@@ -220,13 +216,11 @@ def build_normal_login_timestamp(profile: dict[str, Any]) -> datetime:
 def build_anomalous_login_timestamp(profile: dict[str, Any]) -> datetime:
     """
     Genera un timestamp de login anómalo.
-
     Casos posibles:
     - fin de semana
     - muy fuera de horario
 
     Genera un timestamp di login anomalo.
-
     Casi possibili:
     - fine settimana
     - molto fuori orario
@@ -254,14 +248,12 @@ def build_anomalous_login_timestamp(profile: dict[str, Any]) -> datetime:
 def generate_login_rows(num_logins: int):
     """
     Genera filas sintéticas para login_log.
-
     Devuelve:
     - login_rows
     - successful_sessions_normal
     - successful_sessions_all
 
     Genera righe sintetiche per login_log.
-
     Restituisce:
     - login_rows
     - successful_sessions_normal

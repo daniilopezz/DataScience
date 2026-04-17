@@ -19,20 +19,16 @@ from MachineLearning.ml_model import load_model, predict_activity_with_model
 
 """
 Este archivo realiza el backfill de la tabla ml_prediction_log.
-
 Su función es recorrer todas las actividades ya almacenadas en activity_log,
 aplicar el modelo de machine learning sobre cada una de ellas y guardar
 el resultado de la predicción en la tabla ml_prediction_log.
-
 En esta versión, el modelo trabaja con un enfoque de detección de anomalías
 basado en el comportamiento habitual de cada usuario.
 
 Questo file esegue il backfill della tabella ml_prediction_log.
-
 La sua funzione è scorrere tutte le attività già memorizzate in activity_log,
 applicare il modello di machine learning su ciascuna di esse e salvare
 il risultato della previsione nella tabella ml_prediction_log.
-
 In questa versione, il modello lavora con un approccio di rilevamento anomalie
 basato sul comportamento abituale di ciascun utente.
 """
@@ -66,7 +62,6 @@ def get_connection():
 def load_activity_data() -> pd.DataFrame:
     """
     Carga todas las actividades almacenadas en activity_log.
-
     Devuelve un DataFrame con:
     - activity_log_id
     - user_id
@@ -76,7 +71,6 @@ def load_activity_data() -> pd.DataFrame:
     - logged_at
 
     Carica tutte le attività memorizzate in activity_log.
-
     Restituisce un DataFrame con:
     - activity_log_id
     - user_id
@@ -115,7 +109,6 @@ def build_prediction_rows(df: pd.DataFrame, model_bundle):
     """
     Recorre todas las actividades y construye las filas que se insertarán
     en ml_prediction_log.
-
     Para cada actividad:
     - llama al modelo correspondiente al usuario
     - obtiene la predicción
@@ -124,7 +117,6 @@ def build_prediction_rows(df: pd.DataFrame, model_bundle):
 
     Scorre tutte le attività e costruisce le righe che verranno inserite
     in ml_prediction_log.
-
     Per ogni attività:
     - richiama il modello corrispondente all'utente
     - ottiene la previsione

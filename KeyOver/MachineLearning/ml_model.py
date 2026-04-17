@@ -10,22 +10,18 @@ import sys
 Este archivo se encarga de cargar los datos de actividad desde PostgreSQL,
 preparar las variables necesarias para el entrenamiento y entrenar modelos
 de detección de anomalías basados en el comportamiento habitual de cada usuario.
-
 La idea no es utilizar reglas fijas para marcar anomalías, sino permitir que
 el modelo aprenda qué combinaciones son normales para cada usuario y detecte
 desviaciones respecto a ese patrón aprendido.
-
 También incluye funciones para guardar los modelos entrenados, volver a
 cargarlos desde disco y realizar predicciones sobre nuevas actividades.
 
 Questo file si occupa di caricare i dati di attività da PostgreSQL,
 preparare le variabili necessarie per l'addestramento e addestrare modelli
 di rilevamento delle anomalie basati sul comportamento abituale di ciascun utente.
-
 L'idea non è utilizzare regole fisse per marcare le anomalie, ma permettere
 al modello di imparare quali combinazioni sono normali per ogni utente e
 rilevare deviazioni rispetto a quel comportamento appreso.
-
 Include anche funzioni per salvare i modelli addestrati, ricaricarli dal disco
 ed eseguire previsioni su nuove attività.
 """
@@ -97,23 +93,19 @@ def load_activity_data() -> pd.DataFrame:
 def prepare_activity_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Prepara las variables necesarias para el entrenamiento.
-
     A partir de logged_at se generan:
     - hour
     - minute
     - day_of_week
-
     No se crea ninguna etiqueta manual de anomalía, porque el objetivo
     es que el modelo aprenda el comportamiento normal directamente
     desde los datos.
 
     Prepara le variabili necessarie per l'addestramento.
-
     A partire da logged_at vengono generate:
     - hour
     - minute
     - day_of_week
-
     Non viene creata nessuna etichetta manuale di anomalia, perché
     l'obiettivo è che il modello impari il comportamento normale
     direttamente dai dati.
@@ -133,12 +125,10 @@ def prepare_activity_features(df: pd.DataFrame) -> pd.DataFrame:
 def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """
     Construye la matriz de variables que se utilizará en el modelo.
-
     Se aplican variables dummificadas para capturar mejor las categorías
     de element_id, entity_id, action_id y day_of_week.
 
     Costruisce la matrice delle variabili che verrà utilizzata nel modello.
-
     Vengono applicate variabili dummy per catturare meglio le categorie
     di element_id, entity_id, action_id e day_of_week.
     """
@@ -166,13 +156,11 @@ def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
 def train_activity_model(df: pd.DataFrame, contamination: float = 0.05):
     """
     Entrena un modelo de detección de anomalías por cada usuario.
-
     Para cada user_id:
     - filtra sus actividades
     - construye su matriz de variables
     - entrena un IsolationForest
     - guarda también las columnas utilizadas en el entrenamiento
-
     Devuelve un diccionario con esta estructura:
     {
         user_id: {
@@ -182,13 +170,11 @@ def train_activity_model(df: pd.DataFrame, contamination: float = 0.05):
     }
 
     Addestra un modello di rilevamento anomalie per ogni utente.
-
     Per ogni user_id:
     - filtra le sue attività
     - costruisce la sua matrice di variabili
     - addestra un IsolationForest
     - salva anche le colonne utilizzate durante l'addestramento
-
     Restituisce un dizionario con questa struttura:
     {
         user_id: {
@@ -296,13 +282,11 @@ def align_features_to_training(row_features: pd.DataFrame, feature_columns: list
     """
     Alinea una fila de inferencia con las columnas exactas usadas
     durante el entrenamiento del modelo.
-
     Si falta alguna columna, se rellena con 0.
     Si sobra alguna, se elimina.
 
     Allinea una riga di inferenza con le colonne esatte usate
     durante l'addestramento del modello.
-
     Se manca qualche colonna, viene riempita con 0.
     Se ce n'è qualcuna in più, viene eliminata.
     """
@@ -326,26 +310,22 @@ def predict_activity_with_model(
 ):
     """
     Realiza una predicción individual para una actividad concreta.
-
     Como se trabaja con un modelo por usuario:
     - busca el modelo correspondiente al user_id
     - construye la fila de variables
     - alinea las columnas con las usadas en entrenamiento
     - devuelve si la actividad parece normal o anómala
-
     Convención de salida:
     - prediction = 1  -> actividad anómala
     - prediction = 0  -> actividad normal
     - probability     -> score normalizado de anomalía entre 0 y 1
 
     Esegue una previsione singola per una specifica attività.
-
     Siccome si lavora con un modello per utente:
     - cerca il modello corrispondente al user_id
     - costruisce la riga di variabili
     - allinea le colonne con quelle usate in addestramento
     - restituisce se l'attività sembra normale o anomala
-
     Convenzione di output:
     - prediction = 1  -> attività anomala
     - prediction = 0  -> attività normale

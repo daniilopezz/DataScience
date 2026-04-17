@@ -1,7 +1,6 @@
 from datetime import datetime
 from pathlib import Path
 import sys
-
 import pandas as pd
 
 # Añadimos la raíz del proyecto al path para poder importar ml_model.py
@@ -13,7 +12,6 @@ from MachineLearning.ml_model import load_model, predict_activity_with_model
 
 """
 Este archivo centraliza la lógica de control de anomalías del sistema.
-
 Su función es:
 - cargar el modelo de activity
 - evaluar si un login parece anómalo mediante reglas estadísticas simples
@@ -22,7 +20,6 @@ Su función es:
   bloquear o cerrar la sesión
 
 Questo file centralizza la logica di controllo delle anomalie del sistema.
-
 La sua funzione è:
 - caricare il modello di activity
 - valutare se un login sembra anomalo tramite regole statistiche semplici
@@ -54,19 +51,15 @@ def get_activity_model_bundle():
 def build_login_profile(login_df: pd.DataFrame) -> dict[int, dict]:
     """
     Construye un perfil estadístico simple por usuario a partir de login_log.
-
     Para cada usuario calcula:
     - ventana horaria habitual basada en percentiles
     - días de la semana habituales
-
     Solo se usan logins correctos para definir el comportamiento normal.
 
     Costruisce un profilo statistico semplice per utente a partire da login_log.
-
     Per ogni utente calcola:
     - finestra oraria abituale basata sui percentili
     - giorni della settimana abituali
-
     Si usano solo i login corretti per definire il comportamento normale.
     """
     if login_df.empty:
@@ -188,7 +181,6 @@ def evaluate_activity_with_model(
 ) -> dict:
     """
     Evalúa una actividad con el modelo y decide si debe bloquearse.
-
     Devuelve:
     - is_anomalous
     - prediction
@@ -196,7 +188,6 @@ def evaluate_activity_with_model(
     - message
 
     Valuta un'attività con il modello e decide se deve essere bloccata.
-
     Restituisce:
     - is_anomalous
     - prediction

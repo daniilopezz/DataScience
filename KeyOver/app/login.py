@@ -86,7 +86,6 @@ def get_connection():
         print(f"Errore durante la connessione a PostgreSQL: {e}")
         return None
 
-
 def get_next_attempt(cursor, user_id: int) -> int:
     """
     Obtiene el siguiente número de intento de login para un usuario.
@@ -296,7 +295,6 @@ def process_action(
 ) -> bool:
     """
     Procesa una acción del usuario sobre un elemento.
-
     Nuevo flujo:
     1. Evalúa primero la actividad con el modelo ML.
     2. Si la acción es anómala, cierra la sesión inmediatamente y NO guarda la actividad.
@@ -304,6 +302,7 @@ def process_action(
     4. Guarda la predicción en ml_prediction_log.
     5. Devuelve si la sesión puede continuar.
 
+    Elabora un'azione dell'utente su un elemento.
     Nuovo flusso:
     1. Valuta prima l'attività con il modello ML.
     2. Se l'azione è anomala, chiude immediatamente la sessione e NON salva l'attività.
@@ -399,13 +398,11 @@ def action_menu(
 ) -> bool:
     """
     Muestra el menú de acciones para un elemento y gestiona la opción elegida.
-
     Devuelve:
     - True si la sesión sigue activa
     - False si la sesión se ha cerrado por anomalía
 
     Mostra il menu delle azioni per un elemento e gestisce l'opzione scelta.
-
     Restituisce:
     - True se la sessione resta attiva
     - False se la sessione è stata chiusa per anomalia
@@ -513,7 +510,6 @@ def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: i
 def login_user() -> bool:
     """
     Gestiona todo el proceso de inicio de sesión.
-
     Flujo:
     1. Abre conexión a PostgreSQL.
     2. Carga el modelo de activity si existe.
@@ -526,7 +522,6 @@ def login_user() -> bool:
     9. Si el login es correcto y no es extraño, abre la sesión.
 
     Gestisce l'intero processo di login.
-
     Flusso:
     1. Apre la connessione a PostgreSQL.
     2. Carica il modello di activity se esiste.
