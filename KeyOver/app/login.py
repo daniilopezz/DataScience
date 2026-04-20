@@ -22,26 +22,31 @@ from security.anomaly_guard import (
     evaluate_activity_with_model,
     evaluate_login_with_profile,
     get_activity_model_bundle,
+    get_session_anomaly_threshold,
 )
 
 """
 Este archivo gestiona el flujo principal de interacción con la aplicación:
 inicio de sesión, registro de accesos, selección de elementos, ejecución de acciones
 y control de anomalías.
+
 En esta versión:
 - el login se evalúa usando un perfil histórico del usuario
 - las actividades se evalúan usando el modelo de machine learning
-- si se detecta una actividad extraña, la sesión se cierra automáticamente
-- si se detecta un acceso extraño, el acceso queda bloqueado
+- cada acción genera un coste de sesión basado en anomaly_probability
+- el coste acumulado de sesión se compara con un umbral configurable
+- si se supera el umbral, la sesión se cierra automáticamente
 
 Questo file gestisce il flusso principale di interazione con l'applicazione:
 login, registrazione degli accessi, selezione degli elementi, esecuzione delle azioni
 e controllo delle anomalie.
+
 In questa versione:
 - il login viene valutato usando un profilo storico dell'utente
 - le attività vengono valutate usando il modello di machine learning
-- se viene rilevata un'attività strana, la sessione viene chiusa automaticamente
-- se viene rilevato un accesso strano, l'accesso viene bloccato
+- ogni azione genera un costo di sessione basato su anomaly_probability
+- il costo cumulato di sessione viene confrontato con una soglia configurabile
+- se la soglia viene superata, la sessione viene chiusa automaticamente
 """
 
 DB_CONFIG = {
@@ -85,6 +90,7 @@ def get_connection():
     except Error as e:
         print(f"Errore durante la connessione a PostgreSQL: {e}")
         return None
+
 
 def get_next_attempt(cursor, user_id: int) -> int:
     """
@@ -291,29 +297,41 @@ def process_action(
     user_id: int,
     element_id: int,
     action_option: str,
-    action_text: str
-) -> bool:
+    action_text: str,
+    session_anomaly_cost: float
+) -> tuple[bool, float]:
     """
     Procesa una acción del usuario sobre un elemento.
-    Nuevo flujo:
-    1. Evalúa primero la actividad con el modelo ML.
-    2. Si la acción es anómala, cierra la sesión inmediatamente y NO guarda la actividad.
-    3. Si no es anómala, guarda la actividad en activity_log.
-    4. Guarda la predicción en ml_prediction_log.
-    5. Devuelve si la sesión puede continuar.
+
+    Flujo:
+    1. Evalúa la actividad con el modelo.
+    2. Obtiene el coste de la operación (anomaly_probability).
+    3. Suma el coste al total acumulado de la sesión.
+    4. Muestra coste individual, coste acumulado y umbral.
+    5. Si se supera el umbral de sesión, cierra la sesión.
+    6. Si no se supera, guarda la actividad y la predicción en base de datos.
+
+    Devuelve:
+    - (True, nuevo_coste) si la sesión puede continuar
+    - (False, nuevo_coste) si la sesión ha sido cerrada
 
     Elabora un'azione dell'utente su un elemento.
-    Nuovo flusso:
-    1. Valuta prima l'attività con il modello ML.
-    2. Se l'azione è anomala, chiude immediatamente la sessione e NON salva l'attività.
-    3. Se non è anomala, salva l'attività in activity_log.
-    4. Salva la previsione in ml_prediction_log.
-    5. Restituisce se la sessione può continuare.
+
+    Flusso:
+    1. Valuta l'attività con il modello.
+    2. Ottiene il costo dell'operazione (anomaly_probability).
+    3. Somma il costo al totale cumulato della sessione.
+    4. Mostra costo singolo, costo cumulato e soglia.
+    5. Se la soglia di sessione viene superata, chiude la sessione.
+    6. Se non viene superata, salva l'attività e la previsione nel database.
+
+    Restituisce:
+    - (True, nuovo_costo) se la sessione può continuare
+    - (False, nuovo_costo) se la sessione è stata chiusa
     """
     action_id = ACTION_IDS[action_option]
+    session_threshold = get_session_anomaly_threshold()
 
-    # Primero evaluamos la acción con el modelo, antes de guardar nada.
-    # Valutiamo prima l'azione con il modello, prima di salvare qualsiasi cosa.
     if model_bundle is not None:
         try:
             result = evaluate_activity_with_model(
@@ -324,23 +342,28 @@ def process_action(
                 action_id=action_id
             )
 
-            print(f"\nStai tentando di eseguire l'azione: {action_text}.")
+            operation_cost = float(result["anomaly_score"])
+            new_session_cost = session_anomaly_cost + operation_cost
+
+            print(f"\nStai eseguendo l'azione: {action_text}.")
             print(
                 f"[ML] Previsione del modello: "
                 f"{'attività anomala' if result['prediction'] == 1 else 'attività normale'}."
             )
-            print(f"[ML] Score stimato di anomalia: {result['anomaly_score']:.6f}")
+            print(f"[ML] Costo operazione: {operation_cost:.6f}")
+            print(f"[ML] Costo cumulato sessione: {new_session_cost:.6f}")
+            print(f"[ML] Soglia di sessione: {session_threshold:.6f}")
 
-            # Si el modelo considera la acción anómala, cerramos inmediatamente la sesión.
-            # Se il modello considera l'azione anomala, chiudiamo immediatamente la sessione.
-            if result["is_anomalous"]:
-                print(f"\n{result['message']}")
+            # Si se supera el umbral acumulado, se cierra la sesión y no se guarda la acción.
+            # Se viene superata la soglia cumulata, la sessione viene chiusa e l'azione non viene salvata.
+            if new_session_cost >= session_threshold:
+                print("\nSoglia di sessione superata. Attività marcata come anomala.")
                 print("Logout automatico eseguito.")
                 force_logout_due_to_anomaly(cursor, connection, login_log_id)
-                return False
+                return False, new_session_cost
 
-            # Si no es anómala, entonces la guardamos en activity_log.
-            # Se non è anomala, allora la salviamo in activity_log.
+            # Si no se supera el umbral, guardamos la actividad.
+            # Se la soglia non viene superata, salviamo l'attività.
             activity_log_id = save_activity_log(
                 cursor=cursor,
                 user_id=user_id,
@@ -349,8 +372,6 @@ def process_action(
                 entity_id=DEFAULT_ENTITY_ID
             )
 
-            # Guardamos también la predicción del modelo asociada a la actividad.
-            # Salviamo anche la previsione del modello associata all'attività.
             save_ml_prediction_log(
                 cursor=cursor,
                 activity_log_id=activity_log_id,
@@ -359,20 +380,20 @@ def process_action(
                 entity_id=DEFAULT_ENTITY_ID,
                 action_id=action_id,
                 prediction=result["prediction"],
-                anomaly_probability=result["anomaly_score"]
+                anomaly_probability=operation_cost
             )
 
             connection.commit()
             print(f"Attività registrata correttamente. ID attività: {activity_log_id}")
-            return True
+            return True, new_session_cost
 
         except Exception as e:
             connection.rollback()
             print(f"[ML] Errore durante la previsione: {e}")
-            return False
+            return False, session_anomaly_cost
 
-    # Si no hay modelo, permitimos la acción y solo guardamos la actividad.
-    # Se non c'è il modello, consentiamo l'azione e salviamo solo l'attività.
+    # Si no hay modelo, guardamos la actividad sin evaluación ML.
+    # Se non c'è modello, salviamo l'attività senza valutazione ML.
     print(f"\nStai eseguendo l'azione: {action_text}.")
     activity_log_id = save_activity_log(
         cursor=cursor,
@@ -384,7 +405,7 @@ def process_action(
     connection.commit()
     print("[ML] Nessun modello caricato. Nessuna previsione salvata.")
     print(f"Attività registrata correttamente. ID attività: {activity_log_id}")
-    return True
+    return True, session_anomaly_cost
 
 
 def action_menu(
@@ -394,18 +415,21 @@ def action_menu(
     login_log_id: int,
     user_id: int,
     element_id: int,
-    element_name: str
-) -> bool:
+    element_name: str,
+    session_anomaly_cost: float
+) -> tuple[bool, float]:
     """
     Muestra el menú de acciones para un elemento y gestiona la opción elegida.
+
     Devuelve:
-    - True si la sesión sigue activa
-    - False si la sesión se ha cerrado por anomalía
+    - (True, coste_actualizado) si la sesión sigue activa
+    - (False, coste_actualizado) si la sesión se ha cerrado por anomalía
 
     Mostra il menu delle azioni per un elemento e gestisce l'opzione scelta.
+
     Restituisce:
-    - True se la sessione resta attiva
-    - False se la sessione è stata chiusa per anomalia
+    - (True, costo_aggiornato) se la sessione resta attiva
+    - (False, costo_aggiornato) se la sessione è stata chiusa per anomalia
     """
     while True:
         show_action_menu(element_name)
@@ -414,58 +438,59 @@ def action_menu(
         match option:
             case "0":
                 print("\nRitorno al menu element...")
-                return True
+                return True, session_anomaly_cost
 
             case "1":
-                session_still_active = process_action(
-                    cursor, connection, model_bundle, login_log_id,
-                    user_id, element_id, "1", "visualizzazione"
+                session_still_active, session_anomaly_cost = process_action(
+                    cursor, connection, model_bundle, login_log_id, user_id,
+                    element_id, "1", "visualizzazione", session_anomaly_cost
                 )
                 if not session_still_active:
-                    return False
+                    return False, session_anomaly_cost
 
             case "2":
-                session_still_active = process_action(
-                    cursor, connection, model_bundle, login_log_id,
-                    user_id, element_id, "2", "creazione"
+                session_still_active, session_anomaly_cost = process_action(
+                    cursor, connection, model_bundle, login_log_id, user_id,
+                    element_id, "2", "creazione", session_anomaly_cost
                 )
                 if not session_still_active:
-                    return False
+                    return False, session_anomaly_cost
 
             case "3":
-                session_still_active = process_action(
-                    cursor, connection, model_bundle, login_log_id,
-                    user_id, element_id, "3", "modifica"
+                session_still_active, session_anomaly_cost = process_action(
+                    cursor, connection, model_bundle, login_log_id, user_id,
+                    element_id, "3", "modifica", session_anomaly_cost
                 )
                 if not session_still_active:
-                    return False
+                    return False, session_anomaly_cost
 
             case "4":
-                session_still_active = process_action(
-                    cursor, connection, model_bundle, login_log_id,
-                    user_id, element_id, "4", "eliminazione"
+                session_still_active, session_anomaly_cost = process_action(
+                    cursor, connection, model_bundle, login_log_id, user_id,
+                    element_id, "4", "eliminazione", session_anomaly_cost
                 )
                 if not session_still_active:
-                    return False
+                    return False, session_anomaly_cost
 
             case "5":
-                session_still_active = process_action(
-                    cursor, connection, model_bundle, login_log_id,
-                    user_id, element_id, "5", "copia"
+                session_still_active, session_anomaly_cost = process_action(
+                    cursor, connection, model_bundle, login_log_id, user_id,
+                    element_id, "5", "copia", session_anomaly_cost
                 )
                 if not session_still_active:
-                    return False
+                    return False, session_anomaly_cost
 
             case "6":
-                session_still_active = process_action(
-                    cursor, connection, model_bundle, login_log_id,
-                    user_id, element_id, "6", "condivisione"
+                session_still_active, session_anomaly_cost = process_action(
+                    cursor, connection, model_bundle, login_log_id, user_id,
+                    element_id, "6", "condivisione", session_anomaly_cost
                 )
                 if not session_still_active:
-                    return False
+                    return False, session_anomaly_cost
 
             case _:
                 print("\nOpzione non valida.")
+
 
 def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: int):
     """
@@ -473,6 +498,8 @@ def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: i
 
     Mostra il menu degli elementi disponibili e apre il menu delle azioni.
     """
+    session_anomaly_cost = 0.0
+
     while True:
         elements = get_elements(cursor)
         element_map = {str(element_id): (element_id, name) for element_id, name in elements}
@@ -491,14 +518,15 @@ def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: i
             element_id, element_name = element_map[option]
             print(f"\nHai selezionato l'elemento: {element_name}")
 
-            session_still_active = action_menu(
+            session_still_active, session_anomaly_cost = action_menu(
                 cursor=cursor,
                 connection=connection,
                 model_bundle=model_bundle,
                 login_log_id=login_log_id,
                 user_id=user_id,
                 element_id=element_id,
-                element_name=element_name
+                element_name=element_name,
+                session_anomaly_cost=session_anomaly_cost
             )
 
             if not session_still_active:
@@ -510,6 +538,7 @@ def element_menu(cursor, connection, model_bundle, login_log_id: int, user_id: i
 def login_user() -> bool:
     """
     Gestiona todo el proceso de inicio de sesión.
+
     Flujo:
     1. Abre conexión a PostgreSQL.
     2. Carga el modelo de activity si existe.
@@ -522,16 +551,6 @@ def login_user() -> bool:
     9. Si el login es correcto y no es extraño, abre la sesión.
 
     Gestisce l'intero processo di login.
-    Flusso:
-    1. Apre la connessione a PostgreSQL.
-    2. Carica il modello di activity se esiste.
-    3. Costruisce profili storici di login.
-    4. Consente fino a MAX_ATTEMPTS tentativi.
-    5. Cerca l'utente tramite email.
-    6. Verifica se è attivo.
-    7. Valida la password confrontando gli hash.
-    8. Valuta se il login è strano.
-    9. Se il login è corretto e non è strano, apre la sessione.
     """
     connection = get_connection()
     if connection is None:

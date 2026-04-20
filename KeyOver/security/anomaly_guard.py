@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import sys
+
 import pandas as pd
 
 # Añadimos la raíz del proyecto al path para poder importar ml_model.py
@@ -12,6 +13,7 @@ from MachineLearning.ml_model import load_model, predict_activity_with_model
 
 """
 Este archivo centraliza la lógica de control de anomalías del sistema.
+
 Su función es:
 - cargar el modelo de activity
 - evaluar si un login parece anómalo mediante reglas estadísticas simples
@@ -19,19 +21,31 @@ Su función es:
 - devolver una decisión clara para que app/login.py sepa si debe permitir,
   bloquear o cerrar la sesión
 
+Además, cada acción genera un "coste" de sesión basado en la
+anomaly_probability. Ese coste nunca puede ser 0 y se acumula
+durante la sesión hasta superar un umbral.
+
 Questo file centralizza la logica di controllo delle anomalie del sistema.
+
 La sua funzione è:
 - caricare il modello di activity
 - valutare se un login sembra anomalo tramite regole statistiche semplici
 - valutare se un'attività sembra anomala tramite il modello di machine learning
 - restituire una decisione chiara affinché app/login.py sappia se deve permettere,
   bloccare o chiudere la sessione
+
+Inoltre, ogni azione genera un "costo" di sessione basato sulla
+anomaly_probability. Questo costo non può mai essere 0 e si accumula
+durante la sessione fino a superare una soglia.
 """
 
 ACTIVITY_MODEL_PATH = PROJECT_ROOT / "models" / "activity_model.pkl"
 
-# Umbral para bloqueo de actividad.
-ACTIVITY_ANOMALY_THRESHOLD = 0.002 
+# Umbral acumulado de sesión.
+SESSION_ANOMALY_THRESHOLD = 0.030000
+
+# Coste mínimo permitido para que nunca exista anomaly_probability = 0.
+MIN_ANOMALY_PROBABILITY = 0.000001
 
 # Umbral horario para login:
 # si el acceso cae demasiado lejos de la media habitual del usuario,
@@ -41,25 +55,38 @@ LOGIN_HOUR_DISTANCE_THRESHOLD = 3.0
 
 def get_activity_model_bundle():
     """
-    Carga el bundle de modelos de actividad.
+    Carga el bundle/modelo de activity.
 
-    Carica il bundle di modelli di activity.
+    Carica il bundle/modello di activity.
     """
     return load_model(str(ACTIVITY_MODEL_PATH))
+
+
+def get_session_anomaly_threshold() -> float:
+    """
+    Devuelve el umbral configurado para el coste acumulado de sesión.
+
+    Restituisce la soglia configurata per il costo cumulato di sessione.
+    """
+    return SESSION_ANOMALY_THRESHOLD
 
 
 def build_login_profile(login_df: pd.DataFrame) -> dict[int, dict]:
     """
     Construye un perfil estadístico simple por usuario a partir de login_log.
+
     Para cada usuario calcula:
     - ventana horaria habitual basada en percentiles
     - días de la semana habituales
+
     Solo se usan logins correctos para definir el comportamiento normal.
 
     Costruisce un profilo statistico semplice per utente a partire da login_log.
+
     Per ogni utente calcola:
     - finestra oraria abituale basata sui percentili
     - giorni della settimana abituali
+
     Si usano solo i login corretti per definire il comportamento normale.
     """
     if login_df.empty:
@@ -69,8 +96,6 @@ def build_login_profile(login_df: pd.DataFrame) -> dict[int, dict]:
     df["logged_at"] = pd.to_datetime(df["logged_at"], errors="coerce")
     df = df.dropna(subset=["logged_at"])
 
-    # Nos quedamos solo con logins correctos.
-    # Consideriamo solo i login corretti.
     if "result" in df.columns:
         df = df[df["result"] == True].copy()
 
@@ -171,6 +196,7 @@ def evaluate_login_with_profile(
         "message": "Accesso strano, attendi conferma." if is_anomalous else ""
     }
 
+
 def evaluate_activity_with_model(
     model_bundle,
     user_id: int,
@@ -180,19 +206,25 @@ def evaluate_activity_with_model(
     logged_at=None
 ) -> dict:
     """
-    Evalúa una actividad con el modelo y decide si debe bloquearse.
+    Evalúa una actividad con el modelo y devuelve el coste de la operación.
+
     Devuelve:
-    - is_anomalous
     - prediction
     - anomaly_score
     - message
 
-    Valuta un'attività con il modello e decide se deve essere bloccata.
+    La decisión de bloqueo por sesión se realiza fuera de esta función,
+    sumando el anomaly_score de cada acción.
+
+    Valuta un'attività con il modello e restituisce il costo dell'operazione.
+
     Restituisce:
-    - is_anomalous
     - prediction
     - anomaly_score
     - message
+
+    La decisione di blocco per sessione viene eseguita fuori da questa funzione,
+    sommando l'anomaly_score di ogni azione.
     """
     if logged_at is None:
         logged_at = datetime.now()
@@ -208,19 +240,19 @@ def evaluate_activity_with_model(
         )
     except Exception as e:
         return {
-            "is_anomalous": False,
             "prediction": 0,
-            "anomaly_score": 0.0,
+            "anomaly_score": MIN_ANOMALY_PROBABILITY,
             "message": f"Errore nel controllo ML dell'attività: {e}"
         }
 
-    is_anomalous = bool(
-        prediction == 1 and anomaly_score >= ACTIVITY_ANOMALY_THRESHOLD
-    )
+    # Nunca permitimos que el coste sea 0.
+    if anomaly_score is None:
+        anomaly_score = MIN_ANOMALY_PROBABILITY
+    else:
+        anomaly_score = max(float(anomaly_score), MIN_ANOMALY_PROBABILITY)
 
     return {
-        "is_anomalous": is_anomalous,
         "prediction": int(prediction),
-        "anomaly_score": float(anomaly_score),
-        "message": "Azione strana, attendi conferma." if is_anomalous else ""
+        "anomaly_score": anomaly_score,
+        "message": "Azione strana, attendi conferma." if int(prediction) == 1 else ""
     }
