@@ -1,37 +1,52 @@
+from datetime import datetime
+from pathlib import Path
+import sys
+
+import joblib
+import numpy as np
 import pandas as pd
 import psycopg2
 from psycopg2 import Error
 from sklearn.ensemble import IsolationForest
-import joblib
-from pathlib import Path
-import sys
 
 """
-Este archivo se encarga de cargar los datos de actividad desde PostgreSQL,
-preparar las variables necesarias para el entrenamiento y entrenar modelos
-de detección de anomalías basados en el comportamiento habitual de cada usuario.
+Este archivo se encarga de entrenar el modelo de actividad.
 
-La idea no es utilizar reglas fijas para marcar anomalías, sino permitir que
-el modelo aprenda qué combinaciones son normales para cada usuario y detecte
-desviaciones respecto a ese patrón aprendido.
+El modelo aprende el comportamiento habitual de cada usuario a nivel de acción,
+teniendo en cuenta:
+- elemento
+- entidad
+- acción
+- hora
+- minuto
+- día de la semana
+- segundos desde el inicio de sesión
+- segundos desde la acción anterior
 
-Además, el modelo devuelve una anomaly_probability que:
-- nunca puede ser 0
-- refleja la rareza de la operación para ese usuario
-- puede usarse como "coste" acumulado de sesión
+También almacena frecuencias históricas de combinaciones
+(elemento, entidad, acción) para reforzar la noción de rareza.
 
-Questo file si occupa di caricare i dati di attività da PostgreSQL,
-preparare le variabili necessarie per l'addestramento e addestrare modelli
-di rilevamento delle anomalie basati sul comportamento abituale di ciascun utente.
+En esta versión, la asignación de actividades a sesiones NO se hace con un JOIN
+temporal pesado en SQL, sino de forma eficiente en Python por usuario.
 
-L'idea non è utilizzare regole fisse per marcare le anomalie, ma permettere
-al modello di imparare quali combinazioni sono normali per ogni utente e
-rilevare deviazioni rispetto a quel comportamento appreso.
+Questo file si occupa di addestrare il modello di attività.
 
-Inoltre, il modello restituisce una anomaly_probability che:
-- non può mai essere 0
-- riflette la rarità dell'operazione per quell'utente
-- può essere usata come "costo" cumulato di sessione
+Il modello apprende il comportamento abituale di ciascun utente a livello di azione,
+tenendo conto di:
+- elemento
+- entità
+- azione
+- ora
+- minuto
+- giorno della settimana
+- secondi dall'inizio della sessione
+- secondi dall'azione precedente
+
+Inoltre memorizza frequenze storiche delle combinazioni
+(elemento, entità, azione) per rafforzare la nozione di rarità.
+
+In questa versione, l'assegnazione delle attività alle sessioni NON viene fatta con una JOIN
+temporale pesante in SQL, ma in modo efficiente in Python per utente.
 """
 
 DB_CONFIG = {
@@ -47,18 +62,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 MODEL_PATH = PROJECT_ROOT / "models" / "activity_model.pkl"
-
-# Probabilidad mínima para evitar valores exactamente iguales a 0.
 MIN_ANOMALY_PROBABILITY = 0.000001
 
 
 def get_connection():
     """
-    Abre una conexión con PostgreSQL utilizando la configuración definida
-    en DB_CONFIG. Si ocurre un error, devuelve None.
+    Abre una conexión con PostgreSQL.
 
-    Apre una connessione a PostgreSQL utilizzando la configurazione definita
-    in DB_CONFIG. Se si verifica un errore, restituisce None.
+    Apre una connessione a PostgreSQL.
     """
     try:
         return psycopg2.connect(**DB_CONFIG)
@@ -67,13 +78,42 @@ def get_connection():
         return None
 
 
+def load_login_data() -> pd.DataFrame:
+    """
+    Carga login_log.
+
+    Carica login_log.
+    """
+    connection = get_connection()
+    if connection is None:
+        return pd.DataFrame()
+
+    query = """
+        SELECT
+            login_log_id,
+            user_id,
+            result,
+            attempt,
+            logged_at,
+            logout_at
+        FROM login_log
+        ORDER BY user_id, logged_at, login_log_id
+    """
+
+    try:
+        return pd.read_sql(query, connection)
+    except Exception as e:
+        print(f"Errore durante il caricamento di login_log: {e}")
+        return pd.DataFrame()
+    finally:
+        connection.close()
+
+
 def load_activity_data() -> pd.DataFrame:
     """
-    Carga los datos de activity_log desde PostgreSQL y los devuelve
-    en un DataFrame.
+    Carga activity_log.
 
-    Carica i dati di activity_log da PostgreSQL e li restituisce
-    in un DataFrame.
+    Carica activity_log.
     """
     connection = get_connection()
     if connection is None:
@@ -88,12 +128,11 @@ def load_activity_data() -> pd.DataFrame:
             action_id,
             logged_at
         FROM activity_log
-        ORDER BY activity_log_id
+        ORDER BY user_id, logged_at, activity_log_id
     """
 
     try:
-        df = pd.read_sql(query, connection)
-        return df
+        return pd.read_sql(query, connection)
     except Exception as e:
         print(f"Errore durante il caricamento di activity_log: {e}")
         return pd.DataFrame()
@@ -101,60 +140,186 @@ def load_activity_data() -> pd.DataFrame:
         connection.close()
 
 
+def assign_activities_to_sessions(login_df: pd.DataFrame, activity_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Asigna cada actividad a una sesión de login válida de forma eficiente por usuario.
+
+    Regla:
+    - mismo user_id
+    - activity.logged_at entre login.logged_at y login.logout_at
+
+    Si hay varias sesiones solapadas, se elige la más reciente cuyo inicio sea
+    anterior o igual a la actividad.
+
+    Assegna ogni attività a una sessione di login valida in modo efficiente per utente.
+
+    Regola:
+    - stesso user_id
+    - activity.logged_at compreso tra login.logged_at e login.logout_at
+
+    Se ci sono più sessioni sovrapposte, si sceglie la più recente il cui inizio sia
+    precedente o uguale all'attività.
+    """
+    if login_df.empty or activity_df.empty:
+        return pd.DataFrame()
+
+    login_df = login_df.copy()
+    activity_df = activity_df.copy()
+
+    login_df["logged_at"] = pd.to_datetime(login_df["logged_at"], errors="coerce")
+    login_df["logout_at"] = pd.to_datetime(login_df["logout_at"], errors="coerce")
+    activity_df["logged_at"] = pd.to_datetime(activity_df["logged_at"], errors="coerce")
+
+    login_df = login_df[
+        (login_df["result"] == True) &
+        (login_df["logged_at"].notna()) &
+        (login_df["logout_at"].notna())
+    ].copy()
+
+    activity_df = activity_df[activity_df["logged_at"].notna()].copy()
+
+    if login_df.empty or activity_df.empty:
+        return pd.DataFrame()
+
+    assigned_rows = []
+
+    login_by_user = {
+        int(user_id): user_df.sort_values(["logged_at", "logout_at", "login_log_id"]).reset_index(drop=True)
+        for user_id, user_df in login_df.groupby("user_id")
+    }
+
+    activity_by_user = {
+        int(user_id): user_df.sort_values(["logged_at", "activity_log_id"]).reset_index(drop=True)
+        for user_id, user_df in activity_df.groupby("user_id")
+    }
+
+    common_users = sorted(set(login_by_user.keys()) & set(activity_by_user.keys()))
+
+    for user_id in common_users:
+        sessions = login_by_user[user_id]
+        activities = activity_by_user[user_id]
+
+        session_records = sessions.to_dict("records")
+        activity_records = activities.to_dict("records")
+
+        session_idx = 0
+        active_candidates = []
+
+        for activity in activity_records:
+            activity_time = activity["logged_at"]
+
+            while session_idx < len(session_records) and session_records[session_idx]["logged_at"] <= activity_time:
+                active_candidates.append(session_records[session_idx])
+                session_idx += 1
+
+            active_candidates = [
+                s for s in active_candidates
+                if s["logout_at"] >= activity_time
+            ]
+
+            if not active_candidates:
+                continue
+
+            selected_session = max(active_candidates, key=lambda s: (s["logged_at"], s["login_log_id"]))
+
+            assigned_rows.append({
+                "login_log_id": int(selected_session["login_log_id"]),
+                "user_id": int(user_id),
+                "session_start": selected_session["logged_at"],
+                "session_end": selected_session["logout_at"],
+                "activity_log_id": int(activity["activity_log_id"]),
+                "element_id": int(activity["element_id"]),
+                "entity_id": int(activity["entity_id"]),
+                "action_id": int(activity["action_id"]),
+                "activity_time": activity_time
+            })
+
+    if not assigned_rows:
+        return pd.DataFrame()
+
+    assigned_df = pd.DataFrame(assigned_rows)
+    assigned_df = assigned_df.sort_values(
+        ["user_id", "login_log_id", "activity_time", "activity_log_id"]
+    ).reset_index(drop=True)
+
+    return assigned_df
+
+
 def prepare_activity_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Prepara las variables necesarias para el entrenamiento.
-    A partir de logged_at se generan:
-    - hour
-    - minute
-    - day_of_week
+    Prepara variables de actividad con contexto temporal de sesión.
 
-    No se crea ninguna etiqueta manual de anomalía, porque el objetivo
-    es que el modelo aprenda el comportamiento normal directamente
-    desde los datos históricos.
-
-    Prepara le variabili necessarie per l'addestramento.
-    A partire da logged_at vengono generate:
-    - hour
-    - minute
-    - day_of_week
-
-    Non viene creata nessuna etichetta manuale di anomalia, perché
-    l'obiettivo è che il modello impari il comportamento normale
-    direttamente dai dati storici.
+    Prepara variabili di attività con contesto temporale di sessione.
     """
     if df.empty:
         return df
 
     df = df.copy()
-    df["logged_at"] = pd.to_datetime(df["logged_at"], errors="coerce")
-    df = df.dropna(subset=["logged_at"])
+    df["session_start"] = pd.to_datetime(df["session_start"], errors="coerce")
+    df["session_end"] = pd.to_datetime(df["session_end"], errors="coerce")
+    df["activity_time"] = pd.to_datetime(df["activity_time"], errors="coerce")
+    df = df.dropna(subset=["session_start", "activity_time"])
 
-    df["hour"] = df["logged_at"].dt.hour
-    df["minute"] = df["logged_at"].dt.minute
-    df["day_of_week"] = df["logged_at"].dt.dayofweek
+    feature_rows = []
 
-    return df
+    for (user_id, login_log_id), group in df.groupby(["user_id", "login_log_id"], dropna=False):
+        group = group.sort_values("activity_time").copy()
+        prev_time = None
+
+        for _, row in group.iterrows():
+            activity_time = row["activity_time"]
+            session_start = row["session_start"]
+
+            if prev_time is None:
+                seconds_since_prev_action = max((activity_time - session_start).total_seconds(), 0.0)
+            else:
+                seconds_since_prev_action = max((activity_time - prev_time).total_seconds(), 0.0)
+
+            seconds_since_session_start = max((activity_time - session_start).total_seconds(), 0.0)
+
+            feature_rows.append({
+                "user_id": int(row["user_id"]),
+                "login_log_id": int(row["login_log_id"]),
+                "activity_log_id": int(row["activity_log_id"]),
+                "element_id": int(row["element_id"]),
+                "entity_id": int(row["entity_id"]),
+                "action_id": int(row["action_id"]),
+                "hour": int(activity_time.hour),
+                "minute": int(activity_time.minute),
+                "day_of_week": int(activity_time.dayofweek),
+                "seconds_since_prev_action": float(seconds_since_prev_action),
+                "seconds_since_session_start": float(seconds_since_session_start),
+            })
+
+            prev_time = activity_time
+
+    return pd.DataFrame(feature_rows)
 
 
 def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Construye la matriz de variables que se utilizará en el modelo.
-    Se aplican variables dummificadas para capturar mejor las categorías
-    de element_id, entity_id, action_id y day_of_week.
+    Construye la matriz de variables para el modelo de actividad.
 
-    Costruisce la matrice delle variabili che verrà utilizzata nel modello.
-    Vengono applicate variabili dummy per catturare meglio le categorie
-    di element_id, entity_id, action_id e day_of_week.
+    Costruisce la matrice delle variabili per il modello di attività.
     """
+    if df.empty:
+        return df
+
     feature_df = df[[
         "element_id",
         "entity_id",
         "action_id",
         "hour",
         "minute",
-        "day_of_week"
+        "day_of_week",
+        "seconds_since_prev_action",
+        "seconds_since_session_start"
     ]].copy()
+
+    feature_df["log_seconds_since_prev_action"] = np.log1p(feature_df["seconds_since_prev_action"])
+    feature_df["log_seconds_since_session_start"] = np.log1p(feature_df["seconds_since_session_start"])
+
+    feature_df = feature_df.drop(columns=["seconds_since_prev_action", "seconds_since_session_start"])
 
     categorical_columns = ["element_id", "entity_id", "action_id", "day_of_week"]
 
@@ -168,81 +333,35 @@ def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def build_user_frequency_stats(user_df: pd.DataFrame) -> dict:
+def build_combo_frequency(df: pd.DataFrame) -> dict[str, float]:
     """
-    Construye estadísticas históricas simples por usuario para capturar
-    hábitos de comportamiento.
+    Calcula la frecuencia histórica de cada combinación elemento-entidad-acción.
 
-    Se calculan frecuencias relativas de:
-    - element_id
-    - entity_id
-    - action_id
-    - combinación (element_id, action_id)
-
-    Esto permite que una operación muy poco frecuente para un usuario
-    tenga un coste de anomalía más alto.
-
-    Costruisce statistiche storiche semplici per utente per catturare
-    le abitudini di comportamento.
-
-    Si calcolano frequenze relative di:
-    - element_id
-    - entity_id
-    - action_id
-    - combinazione (element_id, action_id)
-
-    Questo permette che un'operazione molto poco frequente per un utente
-    abbia un costo di anomalia più alto.
+    Calcola la frequenza storica di ogni combinazione elemento-entità-azione.
     """
-    total = len(user_df)
-
-    element_freq = (user_df["element_id"].value_counts(normalize=True)).to_dict()
-    entity_freq = (user_df["entity_id"].value_counts(normalize=True)).to_dict()
-    action_freq = (user_df["action_id"].value_counts(normalize=True)).to_dict()
+    if df.empty:
+        return {}
 
     combo_series = (
-        user_df.groupby(["element_id", "action_id"]).size() / total
+        df["element_id"].astype(str)
+        + "|"
+        + df["entity_id"].astype(str)
+        + "|"
+        + df["action_id"].astype(str)
     )
-    combo_freq = {tuple(map(int, k)): float(v) for k, v in combo_series.to_dict().items()}
 
-    return {
-        "element_freq": {int(k): float(v) for k, v in element_freq.items()},
-        "entity_freq": {int(k): float(v) for k, v in entity_freq.items()},
-        "action_freq": {int(k): float(v) for k, v in action_freq.items()},
-        "combo_freq": combo_freq,
-        "total_rows": int(total)
-    }
+    counts = combo_series.value_counts(normalize=True).to_dict()
+    return {str(k): float(v) for k, v in counts.items()}
 
 
 def train_activity_model(df: pd.DataFrame, contamination: float = 0.05):
     """
-    Entrena un modelo de detección de anomalías por cada usuario.
-    Para cada user_id:
-    - filtra sus actividades
-    - construye su matriz de variables
-    - entrena un IsolationForest
-    - guarda también las columnas utilizadas en el entrenamiento
-    - guarda estadísticas históricas de frecuencia para ese usuario
+    Entrena un modelo de actividad por usuario.
 
-    Devuelve un diccionario con esta estructura:
-    {
-        user_id: {
-            "model": modelo_entrenado,
-            "feature_columns": columnas_entrenadas,
-            "frequency_stats": estadísticas históricas
-        }
-    }
-
-    Addestra un modello di rilevamento anomalie per ogni utente.
-    Per ogni user_id:
-    - filtra le sue attività
-    - costruisce la sua matrice di variabili
-    - addestra un IsolationForest
-    - salva anche le colonne utilizzate durante l'addestramento
-    - salva statistiche storiche di frequenza per quell'utente
+    Addestra un modello di attività per utente.
     """
     if df.empty:
-        print("Non ci sono dati per l'addestramento.")
+        print("Non ci sono dati per l'addestramento del modello di attività.")
         return None
 
     user_models = {}
@@ -251,41 +370,38 @@ def train_activity_model(df: pd.DataFrame, contamination: float = 0.05):
     for user_id in user_ids:
         user_df = df[df["user_id"] == user_id].copy()
 
-        if user_df.empty:
+        if len(user_df) < 20:
+            print(f"Utente {user_id}: attività insufficienti per addestrare il modello.")
             continue
 
         X_user = build_feature_matrix(user_df)
 
-        if X_user.shape[0] < 10:
-            print(f"Utente {user_id}: dati insufficienti per addestrare il modello.")
-            continue
-
         model = IsolationForest(
-            n_estimators=200,
+            n_estimators=250,
             contamination=contamination,
             random_state=42
         )
 
         model.fit(X_user)
 
-        predictions = model.predict(X_user)
-        anomaly_count = int((predictions == -1).sum())
+        raw_scores = model.decision_function(X_user)
+        anomaly_scores = np.maximum(0.0, -raw_scores)
+        score_scale = float(np.percentile(anomaly_scores, 95)) if len(anomaly_scores) > 0 else 1.0
+        score_scale = max(score_scale, 1e-6)
 
-        frequency_stats = build_user_frequency_stats(user_df)
+        combo_frequency = build_combo_frequency(user_df)
 
         user_models[int(user_id)] = {
             "model": model,
             "feature_columns": list(X_user.columns),
-            "frequency_stats": frequency_stats
+            "score_scale": score_scale,
+            "combo_frequency": combo_frequency
         }
 
-        print(
-            f"Utente {int(user_id)} -> attività: {len(user_df)} | "
-            f"anomalia stimate nel training: {anomaly_count}"
-        )
+        print(f"Utente {int(user_id)} -> attività: {len(user_df)} | score_scale: {score_scale:.6f}")
 
     if not user_models:
-        print("Nessun modello è stato addestrato.")
+        print("Nessun modello di attività è stato addestrato.")
         return None
 
     return user_models
@@ -293,21 +409,21 @@ def train_activity_model(df: pd.DataFrame, contamination: float = 0.05):
 
 def save_model(model_bundle, path: str = str(MODEL_PATH)):
     """
-    Guarda en disco el conjunto de modelos entrenados.
+    Guarda en disco el conjunto de modelos de actividad entrenados.
 
-    Salva su disco l'insieme dei modelli addestrati.
+    Salva su disco l'insieme dei modelli di attività addestrati.
     """
     path_obj = Path(path)
     path_obj.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model_bundle, path_obj)
-    print(f"Modelli salvati in: {path_obj}")
+    print(f"Modelli di attività salvati in: {path_obj}")
 
 
 def load_model(path: str = str(MODEL_PATH)):
     """
-    Carga desde disco el conjunto de modelos entrenados.
+    Carga desde disco el conjunto de modelos de actividad entrenados.
 
-    Carica da disco l'insieme dei modelli addestrati.
+    Carica da disco l'insieme dei modelli di attività addestrati.
     """
     return joblib.load(path)
 
@@ -316,24 +432,40 @@ def build_single_row_features(
     element_id: int,
     entity_id: int,
     action_id: int,
-    logged_at
+    logged_at,
+    session_started_at=None,
+    previous_action_timestamps: list[datetime] | None = None
 ) -> pd.DataFrame:
     """
-    Construye una fila de variables con el mismo formato lógico usado
-    durante el entrenamiento.
+    Construye una fila de variables con el mismo formato usado durante el entrenamiento.
 
-    Costruisce una riga di variabili con lo stesso formato logico usato
-    durante l'addestramento.
+    Costruisce una riga di variabili con lo stesso formato usato durante l'addestramento.
     """
     logged_at = pd.to_datetime(logged_at)
+    previous_action_timestamps = previous_action_timestamps or []
+
+    if session_started_at is None:
+        session_started_at = logged_at
+    else:
+        session_started_at = pd.to_datetime(session_started_at)
+
+    if previous_action_timestamps:
+        prev_time = pd.to_datetime(previous_action_timestamps[-1])
+        seconds_since_prev_action = max((logged_at - prev_time).total_seconds(), 0.0)
+    else:
+        seconds_since_prev_action = max((logged_at - session_started_at).total_seconds(), 0.0)
+
+    seconds_since_session_start = max((logged_at - session_started_at).total_seconds(), 0.0)
 
     row = pd.DataFrame([{
-        "element_id": element_id,
-        "entity_id": entity_id,
-        "action_id": action_id,
-        "hour": logged_at.hour,
-        "minute": logged_at.minute,
-        "day_of_week": logged_at.dayofweek
+        "element_id": int(element_id),
+        "entity_id": int(entity_id),
+        "action_id": int(action_id),
+        "hour": int(logged_at.hour),
+        "minute": int(logged_at.minute),
+        "day_of_week": int(logged_at.dayofweek),
+        "seconds_since_prev_action": float(seconds_since_prev_action),
+        "seconds_since_session_start": float(seconds_since_session_start)
     }])
 
     return build_feature_matrix(row)
@@ -341,15 +473,9 @@ def build_single_row_features(
 
 def align_features_to_training(row_features: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
     """
-    Alinea una fila de inferencia con las columnas exactas usadas
-    durante el entrenamiento del modelo.
-    Si falta alguna columna, se rellena con 0.
-    Si sobra alguna, se elimina.
+    Alinea una fila de inferencia con las columnas exactas usadas durante el entrenamiento.
 
-    Allinea una riga di inferenza con le colonne esatte usate
-    durante l'addestramento del modello.
-    Se manca qualche colonna, viene riempita con 0.
-    Se ce n'è qualcuna in più, viene eliminata.
+    Allinea una riga di inferenza con le colonne esatte usate durante l'addestramento.
     """
     aligned = row_features.copy()
 
@@ -357,79 +483,7 @@ def align_features_to_training(row_features: pd.DataFrame, feature_columns: list
         if column not in aligned.columns:
             aligned[column] = 0
 
-    aligned = aligned[feature_columns]
-    return aligned
-
-
-def compute_behavior_rarity_score(
-    frequency_stats: dict,
-    element_id: int,
-    entity_id: int,
-    action_id: int
-) -> float:
-    """
-    Calcula un score de rareza en función de los hábitos previos del usuario.
-
-    Cuanto menos frecuente sea para ese usuario:
-    - el elemento
-    - la entidad
-    - la acción
-    - la combinación elemento + acción
-
-    más alto será el score.
-
-    El valor final se mantiene en el rango [0, 1].
-
-    Calcola uno score di rarità in funzione delle abitudini precedenti dell'utente.
-    Più un elemento/entità/azione/combinazione è rara per quell'utente,
-    più alto sarà lo score.
-    """
-    if not frequency_stats:
-        return 0.0
-
-    element_freq = float(frequency_stats.get("element_freq", {}).get(int(element_id), 0.0))
-    entity_freq = float(frequency_stats.get("entity_freq", {}).get(int(entity_id), 0.0))
-    action_freq = float(frequency_stats.get("action_freq", {}).get(int(action_id), 0.0))
-    combo_freq = float(
-        frequency_stats.get("combo_freq", {}).get((int(element_id), int(action_id)), 0.0)
-    )
-
-    # Rareza = 1 - frecuencia.
-    # Si algo nunca ha ocurrido para ese usuario, su rareza es máxima (=1).
-    element_rarity = 1.0 - element_freq
-    entity_rarity = 1.0 - entity_freq
-    action_rarity = 1.0 - action_freq
-    combo_rarity = 1.0 - combo_freq
-
-    # Damos más peso a la combinación elemento+acción y al elemento,
-    # porque suelen describir mejor el hábito real del usuario.
-    rarity_score = (
-        0.35 * combo_rarity +
-        0.30 * element_rarity +
-        0.20 * action_rarity +
-        0.15 * entity_rarity
-    )
-
-    return min(max(float(rarity_score), 0.0), 1.0)
-
-
-def combine_model_and_behavior_scores(model_probability: float, behavior_rarity: float) -> float:
-    """
-    Combina:
-    - la probabilidad de anomalía del modelo
-    - la rareza del comportamiento histórico del usuario
-
-    El objetivo es que una operación poco habitual para ese usuario
-    incremente el coste final, aunque la predicción puntual del modelo
-    no sea extrema.
-
-    Combina:
-    - la probabilità di anomalia del modello
-    - la rarità del comportamento storico dell'utente
-    """
-    combined = (0.65 * float(model_probability)) + (0.35 * float(behavior_rarity))
-    combined = min(max(combined, MIN_ANOMALY_PROBABILITY), 1.0)
-    return float(combined)
+    return aligned[feature_columns]
 
 
 def predict_activity_with_model(
@@ -438,33 +492,27 @@ def predict_activity_with_model(
     element_id: int,
     entity_id: int,
     action_id: int,
-    logged_at
+    logged_at,
+    session_started_at=None,
+    previous_action_timestamps: list | None = None
 ):
     """
     Realiza una predicción individual para una actividad concreta.
 
-    Como se trabaja con un modelo por usuario:
-    - busca el modelo correspondiente al user_id
-    - construye la fila de variables
-    - alinea las columnas con las usadas en entrenamiento
-    - calcula la predicción del IsolationForest
-    - ajusta la anomaly_probability con la rareza histórica del usuario
-
     Convención de salida:
     - prediction = 1  -> actividad anómala
     - prediction = 0  -> actividad normal
-    - probability     -> score final de anomalía entre 0 y 1, nunca igual a 0
+    - probability     -> score de anomalía entre 0 y 1, nunca igual a 0
 
     Esegue una previsione singola per una specifica attività.
-    Siccome si lavora con un modello per utente:
-    - cerca il modello corrispondente al user_id
-    - costruisce la riga di variabili
-    - allinea le colonne con quelle usate in addestramento
-    - calcola la previsione dell'IsolationForest
-    - aggiusta la anomaly_probability con la rarità storica dell'utente
+
+    Convenzione di output:
+    - prediction = 1  -> attività anomala
+    - prediction = 0  -> attività normale
+    - probability     -> score di anomalia tra 0 e 1, mai uguale a 0
     """
     if model_bundle is None:
-        raise ValueError("Il bundle dei modelli è vuoto.")
+        raise ValueError("Il bundle dei modelli di attività è vuoto.")
 
     user_id = int(user_id)
 
@@ -474,13 +522,16 @@ def predict_activity_with_model(
     user_model_data = model_bundle[user_id]
     model = user_model_data["model"]
     feature_columns = user_model_data["feature_columns"]
-    frequency_stats = user_model_data.get("frequency_stats", {})
+    score_scale = float(user_model_data["score_scale"])
+    combo_frequency = user_model_data["combo_frequency"]
 
     row_features = build_single_row_features(
         element_id=element_id,
         entity_id=entity_id,
         action_id=action_id,
-        logged_at=logged_at
+        logged_at=logged_at,
+        session_started_at=session_started_at,
+        previous_action_timestamps=previous_action_timestamps
     )
 
     row_aligned = align_features_to_training(row_features, feature_columns)
@@ -488,46 +539,39 @@ def predict_activity_with_model(
     raw_prediction = model.predict(row_aligned)[0]
     raw_score = float(model.decision_function(row_aligned)[0])
 
-    # En IsolationForest:
-    #  1  -> normal
-    # -1  -> anómalo
     prediction = 1 if raw_prediction == -1 else 0
 
-    # Cuanto más negativo sea raw_score, más anómalo es el caso.
     anomaly_score = max(0.0, -raw_score)
+    model_probability = min(anomaly_score / score_scale, 1.0)
 
-    # Normalización estable al rango [0, 1].
-    model_probability = anomaly_score / (1.0 + anomaly_score)
+    combo_key = f"{int(element_id)}|{int(entity_id)}|{int(action_id)}"
+    combo_freq = float(combo_frequency.get(combo_key, 0.0))
+    combo_rarity = 1.0 - combo_freq
 
-    # Ajuste por rareza histórica del comportamiento del usuario.
-    behavior_rarity = compute_behavior_rarity_score(
-        frequency_stats=frequency_stats,
-        element_id=element_id,
-        entity_id=entity_id,
-        action_id=action_id
-    )
+    probability = (0.75 * float(model_probability)) + (0.25 * float(combo_rarity))
+    probability = max(float(probability), MIN_ANOMALY_PROBABILITY)
 
-    probability = combine_model_and_behavior_scores(
-        model_probability=model_probability,
-        behavior_rarity=behavior_rarity
-    )
-
-    # Nunca permitimos probabilidad igual a 0.
-    probability = max(probability, MIN_ANOMALY_PROBABILITY)
-
-    return prediction, float(probability)
+    return prediction, probability
 
 
 if __name__ == "__main__":
-    print("Caricamento dei dati di activity_log...")
-    df = load_activity_data()
-    print("Shape originale:", df.shape)
+    print("Caricamento login_log...")
+    login_df = load_login_data()
+    print("Shape login:", login_df.shape)
 
-    print("Preparazione delle feature di activity...")
-    df_prepared = prepare_activity_features(df)
-    print("Shape preparata:", df_prepared.shape)
+    print("Caricamento activity_log...")
+    activity_df = load_activity_data()
+    print("Shape activity:", activity_df.shape)
 
-    print("Addestramento dei modelli per utente...")
+    print("Assegnazione attività a sessioni...")
+    assigned_df = assign_activities_to_sessions(login_df, activity_df)
+    print("Shape assigned:", assigned_df.shape)
+
+    print("Preparazione feature di attività...")
+    df_prepared = prepare_activity_features(assigned_df)
+    print("Shape prepared:", df_prepared.shape)
+
+    print("Addestramento modelli di attività...")
     model_bundle = train_activity_model(df_prepared, contamination=0.05)
 
     if model_bundle is not None:

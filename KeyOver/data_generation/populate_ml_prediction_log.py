@@ -6,31 +6,68 @@ import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import execute_batch
 
-# Añadimos la raíz del proyecto al path para poder importar ml_model.py
+# Añadimos la raíz del proyecto al path para poder importar módulos
 # también cuando este archivo se ejecuta directamente desde data_generation/.
 #
-# Aggiungiamo la radice del progetto al path per poter importare ml_model.py
+# Aggiungiamo la radice del progetto al path per poter importare moduli
 # anche quando questo file viene eseguito direttamente da data_generation/.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from MachineLearning.ml_model import load_model, predict_activity_with_model
+from security.anomaly_guard import get_session_anomaly_threshold
 
 """
 Este archivo realiza el backfill de la tabla ml_prediction_log.
-Su función es recorrer todas las actividades ya almacenadas en activity_log,
-aplicar el modelo de machine learning sobre cada una de ellas y guardar
-el resultado de la predicción en la tabla ml_prediction_log.
+
+Su función es:
+- recorrer todas las actividades ya almacenadas en activity_log
+- aplicar el modelo de machine learning sobre cada una de ellas
+- guardar el resultado de la predicción en la tabla ml_prediction_log
+
 En esta versión, el modelo trabaja con un enfoque de detección de anomalías
-basado en el comportamiento habitual de cada usuario.
+basado en el comportamiento habitual de cada usuario y genera una
+anomaly_probability que se interpreta como coste de la operación.
+
+Además, como la tabla ml_prediction_log ahora incluye información de sesión,
+este script rellena también:
+- login_log_id
+- session_cumulative_cost
+- session_threshold
+- threshold_exceeded
+
+Dado que se trata de un backfill histórico y no de una sesión en tiempo real,
+no es posible reconstruir con fiabilidad el coste acumulado real por sesión
+a partir de activity_log únicamente. Por eso:
+- login_log_id se deja en NULL
+- session_cumulative_cost se iguala al coste individual de la operación
+- threshold_exceeded se calcula respecto a ese coste individual
 
 Questo file esegue il backfill della tabella ml_prediction_log.
-La sua funzione è scorrere tutte le attività già memorizzate in activity_log,
-applicare il modello di machine learning su ciascuna di esse e salvare
-il risultato della previsione nella tabella ml_prediction_log.
+
+La sua funzione è:
+- scorrere tutte le attività già memorizzate in activity_log
+- applicare il modello di machine learning su ciascuna di esse
+- salvare il risultato della previsione nella tabella ml_prediction_log
+
 In questa versione, il modello lavora con un approccio di rilevamento anomalie
-basato sul comportamento abituale di ciascun utente.
+basato sul comportamento abituale di ciascun utente e genera una
+anomaly_probability che viene interpretata come costo dell'operazione.
+
+Inoltre, siccome la tabella ml_prediction_log ora include anche informazioni
+di sessione, questo script compila anche:
+- login_log_id
+- session_cumulative_cost
+- session_threshold
+- threshold_exceeded
+
+Poiché si tratta di un backfill storico e non di una sessione in tempo reale,
+non è possibile ricostruire in modo affidabile il costo cumulato reale di
+sessione partendo solo da activity_log. Per questo:
+- login_log_id viene lasciato a NULL
+- session_cumulative_cost viene impostato uguale al costo singolo
+- threshold_exceeded viene calcolato rispetto a quel costo singolo
 """
 
 DB_CONFIG = {
@@ -62,6 +99,7 @@ def get_connection():
 def load_activity_data() -> pd.DataFrame:
     """
     Carga todas las actividades almacenadas en activity_log.
+
     Devuelve un DataFrame con:
     - activity_log_id
     - user_id
@@ -71,6 +109,7 @@ def load_activity_data() -> pd.DataFrame:
     - logged_at
 
     Carica tutte le attività memorizzate in activity_log.
+
     Restituisce un DataFrame con:
     - activity_log_id
     - user_id
@@ -109,21 +148,26 @@ def build_prediction_rows(df: pd.DataFrame, model_bundle):
     """
     Recorre todas las actividades y construye las filas que se insertarán
     en ml_prediction_log.
+
     Para cada actividad:
     - llama al modelo correspondiente al usuario
     - obtiene la predicción
-    - obtiene el score de anomalía
+    - obtiene la anomaly_probability
+    - rellena los campos de sesión con una aproximación coherente
     - construye una tupla lista para insertar
 
     Scorre tutte le attività e costruisce le righe che verranno inserite
     in ml_prediction_log.
+
     Per ogni attività:
     - richiama il modello corrispondente all'utente
     - ottiene la previsione
-    - ottiene lo score di anomalia
+    - ottiene la anomaly_probability
+    - compila i campi di sessione con un'approssimazione coerente
     - costruisce una tupla pronta per l'inserimento
     """
     rows = []
+    session_threshold = float(get_session_anomaly_threshold())
 
     for i, row in df.iterrows():
         try:
@@ -136,14 +180,22 @@ def build_prediction_rows(df: pd.DataFrame, model_bundle):
                 logged_at=row["logged_at"]
             )
 
+            operation_cost = float(probability)
+            session_cumulative_cost = operation_cost
+            threshold_exceeded = session_cumulative_cost >= session_threshold
+
             rows.append((
-                int(row["activity_log_id"]),
+                int(row["activity_log_id"]),   # activity_log_id
+                None,                          # login_log_id -> no reconstruible de forma fiable aquí
                 int(row["user_id"]),
                 int(row["element_id"]),
                 int(row["entity_id"]),
                 int(row["action_id"]),
                 bool(prediction),
-                float(probability) if probability is not None else None
+                operation_cost,
+                session_cumulative_cost,
+                session_threshold,
+                bool(threshold_exceeded)
             ))
 
         except Exception as e:
@@ -176,15 +228,19 @@ def insert_prediction_rows(cursor, rows: list[tuple]):
     query = """
         INSERT INTO ml_prediction_log (
             activity_log_id,
+            login_log_id,
             user_id,
             element_id,
             entity_id,
             action_id,
             prediction,
             anomaly_probability,
+            session_cumulative_cost,
+            session_threshold,
+            threshold_exceeded,
             created_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
     """
     execute_batch(cursor, query, rows, page_size=1000)
 

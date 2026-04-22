@@ -4,71 +4,75 @@ import sys
 
 import pandas as pd
 
-# Añadimos la raíz del proyecto al path para poder importar ml_model.py
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from MachineLearning.ml_model import load_model, predict_activity_with_model
+from MachineLearning.ml_model import (
+    load_model as load_activity_model,
+    predict_activity_with_model
+)
+from MachineLearning.session_model import (
+    load_model as load_session_model,
+    predict_session_with_model
+)
 
 """
 Este archivo centraliza la lógica de control de anomalías del sistema.
 
 Su función es:
-- cargar el modelo de activity
-- evaluar si un login parece anómalo mediante reglas estadísticas simples
-- evaluar si una actividad parece anómala mediante el modelo de machine learning
-- devolver una decisión clara para que app/login.py sepa si debe permitir,
-  bloquear o cerrar la sesión
-
-Además, cada acción genera un "coste" de sesión basado en la
-anomaly_probability. Ese coste nunca puede ser 0 y se acumula
-durante la sesión hasta superar un umbral.
+- cargar el modelo de actividad
+- cargar el modelo de sesión
+- evaluar si un login parece anómalo mediante un perfil histórico simple
+- evaluar si una actividad parece anómala mediante el modelo de actividad
+- evaluar si una sesión parece anómala mediante el modelo de sesión
 
 Questo file centralizza la logica di controllo delle anomalie del sistema.
 
 La sua funzione è:
-- caricare il modello di activity
-- valutare se un login sembra anomalo tramite regole statistiche semplici
-- valutare se un'attività sembra anomala tramite il modello di machine learning
-- restituire una decisione chiara affinché app/login.py sappia se deve permettere,
-  bloccare o chiudere la sessione
-
-Inoltre, ogni azione genera un "costo" di sessione basato sulla
-anomaly_probability. Questo costo non può mai essere 0 e si accumula
-durante la sessione fino a superare una soglia.
+- caricare il modello di attività
+- caricare il modello di sessione
+- valutare se un login sembra anomalo tramite un profilo storico semplice
+- valutare se un'attività sembra anomala tramite il modello di attività
+- valutare se una sessione sembra anomala tramite il modello di sessione
 """
 
 ACTIVITY_MODEL_PATH = PROJECT_ROOT / "models" / "activity_model.pkl"
-
-# Umbral acumulado de sesión.
-SESSION_ANOMALY_THRESHOLD = 0.030000
-
-# Coste mínimo permitido para que nunca exista anomaly_probability = 0.
+SESSION_MODEL_PATH = PROJECT_ROOT / "models" / "session_model.pkl"
 MIN_ANOMALY_PROBABILITY = 0.000001
-
-# Umbral horario para login:
-# si el acceso cae demasiado lejos de la media habitual del usuario,
-# se considera extraño.
-LOGIN_HOUR_DISTANCE_THRESHOLD = 3.0
 
 
 def get_activity_model_bundle():
     """
-    Carga el bundle/modelo de activity.
+    Carga el bundle/modelo de actividad.
 
-    Carica il bundle/modello di activity.
+    Carica il bundle/modello di attività.
     """
-    return load_model(str(ACTIVITY_MODEL_PATH))
+    return load_activity_model(str(ACTIVITY_MODEL_PATH))
+
+
+def get_session_model_bundle():
+    """
+    Carga el bundle/modelo de sesión.
+
+    Carica il bundle/modello di sessione.
+    """
+    return load_session_model(str(SESSION_MODEL_PATH))
 
 
 def get_session_anomaly_threshold() -> float:
     """
-    Devuelve el umbral configurado para el coste acumulado de sesión.
+    Mantiene compatibilidad con el resto del proyecto.
 
-    Restituisce la soglia configurata per il costo cumulato di sessione.
+    Ahora la decisión principal es ML, por lo que este valor se usa solo
+    para registro y trazabilidad.
+
+    Mantiene compatibilità con il resto del progetto.
+
+    Ora la decisione principale è ML, quindi questo valore viene usato solo
+    per registrazione e tracciabilità.
     """
-    return SESSION_ANOMALY_THRESHOLD
+    return 0.0
 
 
 def build_login_profile(login_df: pd.DataFrame) -> dict[int, dict]:
@@ -115,7 +119,6 @@ def build_login_profile(login_df: pd.DataFrame) -> dict[int, dict]:
         q10 = user_data["hour_float"].quantile(0.10)
         q90 = user_data["hour_float"].quantile(0.90)
 
-        # Añadimos un pequeño margen de 30 minutos.
         hour_min = max(0.0, float(q10) - 0.5)
         hour_max = min(23.99, float(q90) + 0.5)
 
@@ -138,25 +141,7 @@ def evaluate_login_with_profile(
     """
     Evalúa un intento de login comparándolo con el patrón histórico del usuario.
 
-    Criterios:
-    - día de la semana no habitual
-    - hora fuera de la ventana habitual del usuario
-
-    Devuelve:
-    - is_anomalous
-    - anomaly_score
-    - message
-
     Valuta un tentativo di login confrontandolo con il pattern storico dell'utente.
-
-    Criteri:
-    - giorno della settimana non abituale
-    - orario fuori dalla finestra abituale dell'utente
-
-    Restituisce:
-    - is_anomalous
-    - anomaly_score
-    - message
     """
     if logged_at is None:
         logged_at = datetime.now()
@@ -203,28 +188,14 @@ def evaluate_activity_with_model(
     element_id: int,
     entity_id: int,
     action_id: int,
-    logged_at=None
+    logged_at=None,
+    session_started_at=None,
+    previous_action_timestamps=None
 ) -> dict:
     """
     Evalúa una actividad con el modelo y devuelve el coste de la operación.
 
-    Devuelve:
-    - prediction
-    - anomaly_score
-    - message
-
-    La decisión de bloqueo por sesión se realiza fuera de esta función,
-    sumando el anomaly_score de cada acción.
-
     Valuta un'attività con il modello e restituisce il costo dell'operazione.
-
-    Restituisce:
-    - prediction
-    - anomaly_score
-    - message
-
-    La decisione di blocco per sessione viene eseguita fuori da questa funzione,
-    sommando l'anomaly_score di ogni azione.
     """
     if logged_at is None:
         logged_at = datetime.now()
@@ -236,7 +207,9 @@ def evaluate_activity_with_model(
             element_id=element_id,
             entity_id=entity_id,
             action_id=action_id,
-            logged_at=logged_at
+            logged_at=logged_at,
+            session_started_at=session_started_at,
+            previous_action_timestamps=previous_action_timestamps
         )
     except Exception as e:
         return {
@@ -245,14 +218,70 @@ def evaluate_activity_with_model(
             "message": f"Errore nel controllo ML dell'attività: {e}"
         }
 
-    # Nunca permitimos que el coste sea 0.
-    if anomaly_score is None:
-        anomaly_score = MIN_ANOMALY_PROBABILITY
-    else:
-        anomaly_score = max(float(anomaly_score), MIN_ANOMALY_PROBABILITY)
+    anomaly_score = max(float(anomaly_score), MIN_ANOMALY_PROBABILITY)
 
     return {
         "prediction": int(prediction),
         "anomaly_score": anomaly_score,
         "message": "Azione strana, attendi conferma." if int(prediction) == 1 else ""
+    }
+
+
+def evaluate_session_with_model(
+    model_bundle,
+    user_id: int,
+    action_count: int,
+    cumulative_cost: float,
+    avg_cost: float,
+    max_cost: float,
+    distinct_elements: int,
+    distinct_actions: int,
+    session_duration_min: float,
+    start_hour: float,
+    day_of_week: int,
+    actions_per_minute: float,
+    avg_seconds_between_actions: float,
+    min_seconds_between_actions: float,
+    max_seconds_between_actions: float,
+    repeated_action_ratio: float,
+    repeated_element_ratio: float
+) -> dict:
+    """
+    Evalúa una sesión parcial o completa con el modelo de sesión.
+
+    Valuta una sessione parziale o completa con il modello di sessione.
+    """
+    try:
+        prediction, anomaly_score = predict_session_with_model(
+            model_bundle=model_bundle,
+            user_id=user_id,
+            action_count=action_count,
+            cumulative_cost=cumulative_cost,
+            avg_cost=avg_cost,
+            max_cost=max_cost,
+            distinct_elements=distinct_elements,
+            distinct_actions=distinct_actions,
+            session_duration_min=session_duration_min,
+            start_hour=start_hour,
+            day_of_week=day_of_week,
+            actions_per_minute=actions_per_minute,
+            avg_seconds_between_actions=avg_seconds_between_actions,
+            min_seconds_between_actions=min_seconds_between_actions,
+            max_seconds_between_actions=max_seconds_between_actions,
+            repeated_action_ratio=repeated_action_ratio,
+            repeated_element_ratio=repeated_element_ratio
+        )
+    except Exception as e:
+        return {
+            "prediction": 0,
+            "anomaly_score": MIN_ANOMALY_PROBABILITY,
+            "message": f"Errore nel controllo ML della sessione: {e}"
+        }
+
+    anomaly_score = max(float(anomaly_score), MIN_ANOMALY_PROBABILITY)
+
+    return {
+        "prediction": int(prediction),
+        "anomaly_score": anomaly_score,
+        "message": "Sessione anomala rilevata dal modello." if int(prediction) == 1 else ""
     }
