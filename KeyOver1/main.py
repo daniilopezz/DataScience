@@ -25,7 +25,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config.db import get_connection, get_engine
 from utils.hash import hash_password
-from security.anomaly_guard import build_login_profile, evaluate_login, get_combined_model
+from security.anomaly_guard import (
+    build_login_profile, evaluate_login, get_combined_model,
+    get_user_known_elements, get_model_session_threshold,
+)
 from app.session import run_session
 
 MAX_ATTEMPTS = 3
@@ -186,10 +189,18 @@ def _do_login() -> bool:
             login_log_id = _save_login_log(cursor, user_id, True, attempt_n)
             conn.commit()
 
-            user_threshold = session_thresholds.get(int(user_id), float("inf"))
+            known_elements = get_user_known_elements(combined_model, int(user_id))
+
+            # Umbral: usar el valor del DB si existe, si no el del modelo entrenado.
+            # Soglia: usare il valore del DB se esiste, altrimenti quello del modello.
+            model_threshold = get_model_session_threshold(combined_model, int(user_id))
+            user_threshold = session_thresholds.get(int(user_id), model_threshold)
+
             threshold_display = f"{user_threshold:.4f}" if user_threshold != float("inf") else "∞"
+            elements_display = str(sorted(known_elements)) if known_elements is not None else "tutti"
             print(f"\nBenvenuto/a, {name} {surname}! Accesso effettuato.")
             print(f"  [SOGLIA SESSIONE] costo massimo consentito: {threshold_display}")
+            print(f"  [ELEMENTI AUTORIZZATI] {elements_display}")
             run_session(
                 conn=conn,
                 cursor=cursor,
@@ -197,6 +208,7 @@ def _do_login() -> bool:
                 login_log_id=login_log_id,
                 combined_model=combined_model,
                 session_cost_threshold=user_threshold,
+                known_elements=known_elements,
             )
             return True
 

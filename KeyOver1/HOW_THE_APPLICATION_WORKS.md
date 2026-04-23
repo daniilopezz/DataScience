@@ -1,3 +1,8 @@
+### Español | Italiano
+> Este documento esta disponible en **Español** e **Italiano**. / Questo documento è disponibile in **Spagnolo** e **Italiano**.
+
+---
+
 ### Español
 
 # COMO FUNCIONA LA APLICACION — KeyOver1
@@ -18,7 +23,7 @@ El sistema:
 
 ## 2. Flujo Completo
 
-```text
+```
 El usuario inicia main.py
       │
       ▼
@@ -64,7 +69,7 @@ Login: email + contrasena (maximo 3 intentos)
 **Motor:** PostgreSQL  
 **Archivo de configuracion:** `config/db.py`
 
-```python
+```py
 DB_CONFIG = {
     "host":   "localhost",
     "port":   5432,
@@ -113,7 +118,7 @@ Cada fila representa una accion dentro de una sesion:
 | `log_sec_start` | log(1 + segundos desde el inicio de la sesion) |
 
 ### Formula de probabilidad de anomalia
-```text
+```
 probability = 0.75 × model_score + 0.25 × combo_rarity
 ```
 - `model_score` = puntuacion bruta de IsolationForest normalizada por el percentil 95
@@ -155,7 +160,7 @@ En lugar de entrenar solo con sesiones completas, el modelo se entrena con **tod
 | `repeated_element_ratio` | Frecuencia con la que aparece el elemento mas repetido |
 
 ### ¿Por que modelos por usuario?
-Matteo normalmente hace unas 3 acciones por sesion; Diego hace unas 10. Un unico umbral global generaria falsos positivos para Diego y pasaria por alto anomalias de Matteo. Los modelos por usuario aprenden de forma independiente el patron normal de cada persona.
+Por ejemplo, Matteo normalmente hace unas 3 acciones por sesion; Diego hace unas 10. Un unico umbral global generaria falsos positivos para Diego y pasaria por alto anomalias de Matteo. Los modelos por usuario aprenden de forma independiente el patron normal de cada persona.
 
 ### Contamination
 `contamination=0.03` — mas conservador, ya que las sesiones ya estan filtradas por el modelo de actividad.
@@ -239,7 +244,7 @@ Despues de ambas comprobaciones ML:
 3. Si `cumulative_cost >= threshold` → **logout automatico**
 
 La terminal muestra la suma acumulada despues de cada accion:
-```text
+```
 costo sessione: 0.2000 + 0.4000 + 0.2000 = 0.8000  [soglia: 1.2340]
 ```
 
@@ -255,7 +260,7 @@ Cada vez que un usuario realiza una accion, el **IsolationForest de actividad** 
 
 El **coste de sesion** es la suma acumulada de todos los costes de accion dentro de una sesion:
 
-```text
+```
 costo sessione = 0.2000 + 0.4000 + 0.2000 = 0.8000  [soglia: 1.2340]
 ```
 
@@ -267,8 +272,8 @@ Esta linea se imprime en la terminal despues de cada accion y va creciendo con c
 
 Un unico umbral global seria injusto e inexacto:
 
-- **Matteo** suele realizar unas 3 acciones por sesion → su coste acumulado normal es bajo
-- **Diego** suele realizar unas 8 acciones por sesion → su coste acumulado normal es naturalmente mas alto
+- **Diego** suele realizar unas 3 acciones por sesion → su coste acumulado normal es bajo
+- **Matteo** suele realizar unas 8 acciones por sesion → su coste acumulado normal es naturalmente mas alto
 
 Un umbral calibrado para Diego nunca se activaria en las sesiones anomalas de Matteo, y viceversa. Cada usuario necesita su propio limite basado en su patron personal de uso.
 
@@ -279,7 +284,7 @@ Un umbral calibrado para Diego nunca se activaria en las sesiones anomalas de Ma
 Los costes de las acciones individuales provienen del modelo ML (IsolationForest). Sin embargo, **el propio umbral** se deriva estadisticamente, usando el mismo enfoque que el perfil de login (basado en percentiles).
 
 **Formula:**
-```text
+```
 user_threshold = PERCENTILE_CONT(0.95) of MAX(session_cumulative_cost) per completed session
 ```
 
@@ -301,13 +306,13 @@ Si un usuario no tiene historial de sesiones completadas, el umbral se fija en `
 
 Despues de cada accion, el sistema comprueba:
 
-```text
+```
 if cumulative_cost >= user_threshold → force logout
 ```
 
 Esta comprobacion se ejecuta **despues** de las comprobaciones ML de actividad y sesion. El mensaje de logout es:
 
-```text
+```
 ⚠  Soglia costo sessione superata (1.3500 >= 1.2340) → logout automatico.
 ```
 
@@ -334,8 +339,8 @@ El IsolationForest de sesion **ya impone de forma implicita un limite de coste**
 
 | user_id | Nombre | Horario habitual | Volumen de sesion | Elementos preferidos |
 |---------|------|--------------|----------------|-------------------|
-| 1 | Matteo Nicolosi | 09:00–13:00 | ~3 acciones | FVG, AMCO |
-| 2 | Diego Scardino | 09:00–17:00 | ~8 acciones | VETTING |
+| 1 | Matteo Nicolosi | 09:00–13:00 | ~8 acciones | FVG, AMCO |
+| 2 | Diego Scardino | 09:00–17:00 | ~3 acciones | VETTING |
 | 3 | Emilio Sardo | 10:00–18:00 | ~5 acciones | FVG, RHODENSE, PAPARDO, PULEJO |
 
 Los modelos por usuario son esenciales porque cada usuario tiene un patron de uso realmente diferente.
@@ -361,7 +366,7 @@ Il sistema:
 
 ## 2. Flusso Completo
 
-```text
+```
 L'utente avvia main.py
       │
       ▼
@@ -457,7 +462,7 @@ Ogni riga rappresenta un'azione all'interno di una sessione:
 | `log_sec_start` | log(1 + secondi dall'inizio della sessione) |
 
 ### Formula della probabilita di anomalia
-```text
+```
 probability = 0.75 × model_score + 0.25 × combo_rarity
 ```
 - `model_score` = punteggio grezzo di IsolationForest normalizzato con il 95o percentile
@@ -499,7 +504,7 @@ Invece di addestrarsi solo su sessioni complete, il modello viene addestrato su 
 | `repeated_element_ratio` | Frequenza con cui compare l'elemento piu ripetuto |
 
 ### Perche modelli per utente?
-Matteo normalmente esegue circa 3 azioni per sessione; Diego circa 10. Un'unica soglia globale produrrebbe falsi positivi per Diego e non rileverebbe anomalie per Matteo. I modelli per utente imparano separatamente il comportamento normale di ogni persona.
+Per esempio, Matteo normalmente esegue circa 3 azioni per sessione; Diego circa 10. Un'unica soglia globale produrrebbe falsi positivi per Diego e non rileverebbe anomalie per Matteo. I modelli per utente imparano separatamente il comportamento normale di ogni persona.
 
 ### Contamination
 `contamination=0.03` — piu conservativo, dato che le sessioni sono gia filtrate dal modello di attivita.
@@ -583,7 +588,7 @@ Dopo entrambi i controlli ML:
 3. Se `cumulative_cost >= threshold` → **logout automatico**
 
 Il terminale mostra la somma crescente dopo ogni azione:
-```text
+```
 costo sessione: 0.2000 + 0.4000 + 0.2000 = 0.8000  [soglia: 1.2340]
 ```
 
@@ -599,7 +604,7 @@ Ogni volta che un utente esegue un'azione, l'**IsolationForest di attivita** (mo
 
 Il **costo di sessione** e la somma cumulativa di tutti i costi delle azioni all'interno di una sessione:
 
-```text
+```
 costo sessione = 0.2000 + 0.4000 + 0.2000 = 0.8000  [soglia: 1.2340]
 ```
 
@@ -611,8 +616,8 @@ Questa riga viene stampata nel terminale dopo ogni azione e cresce a ogni nuovo 
 
 Un'unica soglia globale sarebbe ingiusta e imprecisa:
 
-- **Matteo** esegue tipicamente circa 3 azioni per sessione → il suo costo cumulativo normale e basso
-- **Diego** esegue tipicamente circa 8 azioni per sessione → il suo costo cumulativo normale e naturalmente piu alto
+- **Diego** esegue tipicamente circa 3 azioni per sessione → il suo costo cumulativo normale e basso
+- **Matteo** esegue tipicamente circa 8 azioni per sessione → il suo costo cumulativo normale e naturalmente piu alto
 
 Una soglia calibrata per Diego non scatterebbe mai sulle sessioni anomale di Matteo, e viceversa. Ogni utente ha bisogno del proprio limite in base al proprio schema di utilizzo personale.
 
@@ -623,7 +628,7 @@ Una soglia calibrata per Diego non scatterebbe mai sulle sessioni anomale di Mat
 I costi delle singole azioni provengono dal modello ML (IsolationForest). Tuttavia, **la soglia stessa** viene derivata statisticamente, usando lo stesso approccio del profilo di login (basato sui percentili).
 
 **Formula:**
-```text
+```
 user_threshold = PERCENTILE_CONT(0.95) of MAX(session_cumulative_cost) per completed session
 ```
 
@@ -645,13 +650,13 @@ Se un utente non ha alcuna cronologia di sessioni completate, la soglia viene im
 
 Dopo ogni azione, il sistema controlla:
 
-```text
+```
 if cumulative_cost >= user_threshold → force logout
 ```
 
 Questo controllo viene eseguito **dopo** i controlli ML di attivita e sessione. Il messaggio di logout e:
 
-```text
+```
 ⚠  Soglia costo sessione superata (1.3500 >= 1.2340) → logout automatico.
 ```
 
@@ -678,8 +683,8 @@ L'IsolationForest di sessione **impone gia implicitamente un limite di costo** p
 
 | user_id | Nome | Orario tipico | Volume di sessione | Elementi preferiti |
 |---------|------|--------------|----------------|-------------------|
-| 1 | Matteo Nicolosi | 09:00–13:00 | ~3 azioni | FVG, AMCO |
-| 2 | Diego Scardino | 09:00–17:00 | ~8 azioni | VETTING |
+| 1 | Matteo Nicolosi | 09:00–13:00 | ~8 azioni | FVG, AMCO |
+| 2 | Diego Scardino | 09:00–17:00 | ~3 azioni | VETTING | 
 | 3 | Emilio Sardo | 10:00–18:00 | ~5 azioni | FVG, RHODENSE, PAPARDO, PULEJO |
 
 I modelli per utente sono essenziali perche ogni utente ha un modello di utilizzo realmente diverso.

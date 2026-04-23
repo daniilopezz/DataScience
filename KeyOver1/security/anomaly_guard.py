@@ -43,6 +43,35 @@ def get_combined_model() -> dict | None:
     return _COMBINED_MODEL_CACHE
 
 
+# ─── Consultas al modelo combinado / Query al modello combinato ───────────────
+
+def get_user_known_elements(combined_model: dict, user_id: int) -> set[int] | None:
+    # Devuelve los element_ids que el modelo reconoce para este usuario (frecuencia >= 1%).
+    # Restituisce gli element_id che il modello riconosce per questo utente (frequenza >= 1%).
+    # Devuelve None si no hay modelo o el usuario no tiene datos.
+    # Restituisce None se non c'è modello o l'utente non ha dati.
+    if combined_model is None:
+        return None
+    activity = combined_model.get("activity", {})
+    uid = int(user_id)
+    if uid not in activity:
+        return None
+    known = activity[uid].get("known_elements")
+    return set(known) if known else None
+
+
+def get_model_session_threshold(combined_model: dict, user_id: int) -> float:
+    # Devuelve el umbral de coste de sesión calculado durante el entrenamiento.
+    # Restituisce la soglia di costo sessione calcolata durante l'addestramento.
+    if combined_model is None:
+        return float("inf")
+    session = combined_model.get("session", {})
+    uid = int(user_id)
+    if uid not in session:
+        return float("inf")
+    return float(session[uid].get("session_cost_threshold", float("inf")))
+
+
 # ─── Perfil de login / Profilo di login ───────────────────────────────────────
 
 def build_login_profile(login_df: pd.DataFrame) -> dict:

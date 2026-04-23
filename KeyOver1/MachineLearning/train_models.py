@@ -239,13 +239,17 @@ def train_activity_models(prepared_df: pd.DataFrame) -> dict:
         scale = float(np.percentile(scores, 95)) if len(scores) else 1.0
         scale = max(scale, MIN_PROB)
 
+        element_freq = udf["element_id"].value_counts(normalize=True)
+        known_elements = sorted([int(eid) for eid, freq in element_freq.items() if freq >= 0.01])
+
         user_models[int(uid)] = {
             "model":           model,
             "feature_columns": list(X.columns),
             "score_scale":     scale,
             "combo_frequency": _build_combo_frequency(udf),
+            "known_elements":  known_elements,
         }
-        print(f"  [activity] user {uid}: {len(udf):,} actividades | scale={scale:.6f}")
+        print(f"  [activity] user {uid}: {len(udf):,} actividades | scale={scale:.6f} | elementos conocidos: {known_elements}")
 
     return user_models
 
@@ -427,14 +431,22 @@ def train_session_models(prefix_df: pd.DataFrame) -> dict:
         df_p95     = float(np.percentile(df_scores, 95))
         anom_range = max(-df_p1, MIN_PROB)
 
+        session_max_costs = udf.groupby("login_log_id")["cumulative_cost"].max()
+        if len(session_max_costs) >= 5:
+            cost_threshold = float(np.percentile(session_max_costs.values, 95))
+        else:
+            cost_threshold = float("inf")
+
         user_models[int(uid)] = {
-            "model":           model,
-            "feature_columns": list(X.columns),
-            "df_p1":           df_p1,
-            "df_p95":          df_p95,
-            "anom_range":      anom_range,
+            "model":                   model,
+            "feature_columns":         list(X.columns),
+            "df_p1":                   df_p1,
+            "df_p95":                  df_p95,
+            "anom_range":              anom_range,
+            "session_cost_threshold":  cost_threshold,
         }
-        print(f"  [session] user {uid}: {len(udf):,} prefijos | df=[{df_p1:.4f}, {df_p95:.4f}] | anom_range={anom_range:.4f}")
+        threshold_display = f"{cost_threshold:.4f}" if cost_threshold != float("inf") else "∞"
+        print(f"  [session] user {uid}: {len(udf):,} prefijos | df=[{df_p1:.4f}, {df_p95:.4f}] | anom_range={anom_range:.4f} | umbral_coste={threshold_display}")
 
     return user_models
 
@@ -598,7 +610,6 @@ def load_combined_model(path: Path = COMBINED_MODEL_PATH) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN / PRINCIPALE
 # ═══════════════════════════════════════════════════════════════════════════════
-
 def main():
     print("=== Addestramento modelli combinati (attività + sessione) ===\n")
 
