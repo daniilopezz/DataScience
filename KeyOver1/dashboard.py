@@ -10,13 +10,71 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config.db import get_engine
 
-ACTION_LABELS = {
-    1000000: "Visualize",
-    1000001: "Create",
-    1000002: "Edit",
-    1000003: "Delete",
-    1000004: "Copy",
-    1000005: "Share",
+TRANSLATIONS: dict[str, dict] = {
+    "es": {
+        "subtitle": "Actividad de usuarios · actualizado cada 60 s",
+        "no_data": "No hay datos de actividad en la base de datos.",
+        "summary_header": "Resumen por usuario",
+        "actions_dist_header": "Distribución de acciones",
+        "action_detail_header": "Detalle por acción",
+        "element_action_header": "Acciones por elemento y usuario",
+        "kpi_users": "Usuarios",
+        "kpi_total_actions": "Acciones totales",
+        "kpi_total_sessions": "Sesiones totales",
+        "kpi_avg_session": "Media acc/sesión",
+        "kpi_top_user": "Usuario más activo",
+        "col_usuario": "Usuario",
+        "col_total_acciones": "Total acciones",
+        "col_accion_top": "Acción top",
+        "col_pct_top": "% top",
+        "col_accion_menos": "Menos frecuente",
+        "col_sesiones": "Sesiones",
+        "col_media_sesion": "Media/sesión",
+        "col_elemento": "Elemento",
+        "col_accion": "Acción",
+        "col_total": "Total",
+        "footer": "KeyOver1 Dashboard · streamlit run dashboard.py",
+        "actions": {
+            1000000: "Visualizar",
+            1000001: "Crear",
+            1000002: "Editar",
+            1000003: "Eliminar",
+            1000004: "Copiar",
+            1000005: "Compartir",
+        },
+    },
+    "it": {
+        "subtitle": "Attività utenti · aggiornato ogni 60 s",
+        "no_data": "Nessun dato di attività nel database.",
+        "summary_header": "Riepilogo per utente",
+        "actions_dist_header": "Distribuzione delle azioni",
+        "action_detail_header": "Dettaglio per azione",
+        "element_action_header": "Azioni per elemento e utente",
+        "kpi_users": "Utenti",
+        "kpi_total_actions": "Azioni totali",
+        "kpi_total_sessions": "Sessioni totali",
+        "kpi_avg_session": "Media az./sessione",
+        "kpi_top_user": "Utente più attivo",
+        "col_usuario": "Utente",
+        "col_total_acciones": "Totale azioni",
+        "col_accion_top": "Azione top",
+        "col_pct_top": "% top",
+        "col_accion_menos": "Meno frequente",
+        "col_sesiones": "Sessioni",
+        "col_media_sesion": "Media/sessione",
+        "col_elemento": "Elemento",
+        "col_accion": "Azione",
+        "col_total": "Totale",
+        "footer": "KeyOver1 Dashboard · streamlit run dashboard.py",
+        "actions": {
+            1000000: "Visualizza",
+            1000001: "Crea",
+            1000002: "Modifica",
+            1000003: "Elimina",
+            1000004: "Copia",
+            1000005: "Condividi",
+        },
+    },
 }
 
 ELEMENT_LABELS = {
@@ -29,12 +87,12 @@ ELEMENT_LABELS = {
 }
 
 ACTION_COLORS = {
-    "Visualize": "#4A90D9",
-    "Create":    "#27AE60",
-    "Edit":      "#F39C12",
-    "Delete":    "#E74C3C",
-    "Copy":      "#8E44AD",
-    "Share":     "#16A085",
+    "Visualizar": "#4A90D9",
+    "Crear":      "#27AE60",
+    "Editar":     "#F39C12",
+    "Eliminar":   "#E74C3C",
+    "Copiar":     "#8E44AD",
+    "Compartir":  "#16A085",
 }
 
 CSS = """
@@ -110,6 +168,13 @@ h2, h3 {
     font-size: 0.95rem;
     margin-top: 1.5rem;
 }
+
+/* Botones de idioma */
+[data-testid="stButton"] button {
+    font-size: 1.5rem !important;
+    padding: 4px 10px !important;
+    line-height: 1 !important;
+}
 </style>
 """
 
@@ -167,16 +232,20 @@ def load_stats() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return action_df, session_df, element_df
 
 
-def build_summary(action_df: pd.DataFrame, session_df: pd.DataFrame) -> pd.DataFrame:
+def build_summary(
+    action_df: pd.DataFrame, session_df: pd.DataFrame, t: dict
+) -> pd.DataFrame:
     if action_df.empty:
         return pd.DataFrame()
 
-    action_df["action_label"] = action_df["action_id"].map(ACTION_LABELS).fillna(
-        action_df["action_id"].astype(str)
+    action_labels = t["actions"]
+    adf = action_df.copy()
+    adf["action_label"] = adf["action_id"].map(action_labels).fillna(
+        adf["action_id"].astype(str)
     )
 
     rows = []
-    for uid, grp in action_df.groupby("user_id"):
+    for uid, grp in adf.groupby("user_id"):
         grp_sorted = grp.sort_values("total", ascending=False)
         usuario = grp_sorted["usuario"].iloc[0]
         total_acciones = int(grp_sorted["total"].sum())
@@ -196,37 +265,37 @@ def build_summary(action_df: pd.DataFrame, session_df: pd.DataFrame) -> pd.DataF
         )
 
         rows.append({
-            "Usuario":               usuario,
-            "Total acciones":        total_acciones,
-            "Acción top":            accion_mas,
-            "N top":                 accion_mas_n,
-            "% acción top":          pct_top,
-            "Acción menos":          accion_menos,
-            "N menos":               accion_menos_n,
-            "Sesiones":              num_sesiones,
-            "Media acc/sesión":      avg_por_sesion,
+            "Usuario":           usuario,
+            "Total acciones":    total_acciones,
+            "Acción top":        accion_mas,
+            "N top":             accion_mas_n,
+            "% acción top":      pct_top,
+            "Acción menos":      accion_menos,
+            "N menos":           accion_menos_n,
+            "Sesiones":          num_sesiones,
+            "Media acc/sesión":  avg_por_sesion,
             **{f"#{k}": v for k, v in dist.items()},
         })
 
     return pd.DataFrame(rows)
 
 
-def render_kpis(df: pd.DataFrame) -> None:
-    total_users   = len(df)
-    total_actions = int(df["Total acciones"].sum())
+def render_kpis(df: pd.DataFrame, t: dict) -> None:
+    total_users    = len(df)
+    total_actions  = int(df["Total acciones"].sum())
     total_sessions = int(df["Sesiones"].sum())
-    avg_session   = round(df["Media acc/sesión"].mean(), 1) if total_users else 0
-    top_user      = df.loc[df["Total acciones"].idxmax(), "Usuario"] if total_users else "—"
+    avg_session    = round(df["Media acc/sesión"].mean(), 1) if total_users else 0
+    top_user       = df.loc[df["Total acciones"].idxmax(), "Usuario"] if total_users else "—"
 
     cols = st.columns(5)
-    cols[0].metric("Usuarios",          total_users)
-    cols[1].metric("Acciones totales",  f"{total_actions:,}")
-    cols[2].metric("Sesiones totales",  total_sessions)
-    cols[3].metric("Media acc/sesión",  avg_session)
-    cols[4].metric("Usuario más activo", top_user)
+    cols[0].metric(t["kpi_users"],         total_users)
+    cols[1].metric(t["kpi_total_actions"], f"{total_actions:,}")
+    cols[2].metric(t["kpi_total_sessions"], total_sessions)
+    cols[3].metric(t["kpi_avg_session"],   avg_session)
+    cols[4].metric(t["kpi_top_user"],      top_user)
 
 
-def render_summary_table(df: pd.DataFrame) -> None:
+def render_summary_table(df: pd.DataFrame, t: dict) -> None:
     display = df[[
         "Usuario", "Total acciones", "Acción top", "% acción top",
         "Acción menos", "Sesiones", "Media acc/sesión",
@@ -237,15 +306,15 @@ def render_summary_table(df: pd.DataFrame) -> None:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Usuario":          st.column_config.TextColumn("Usuario", width="medium"),
-            "Total acciones":   st.column_config.NumberColumn("Total acciones", format="%d"),
-            "Acción top":       st.column_config.TextColumn("Acción top", width="small"),
+            "Usuario":          st.column_config.TextColumn(t["col_usuario"],        width="medium"),
+            "Total acciones":   st.column_config.NumberColumn(t["col_total_acciones"], format="%d"),
+            "Acción top":       st.column_config.TextColumn(t["col_accion_top"],     width="small"),
             "% acción top":     st.column_config.ProgressColumn(
-                                    "% top", format="%.1f%%", min_value=0, max_value=100
+                                    t["col_pct_top"], format="%.1f%%", min_value=0, max_value=100
                                 ),
-            "Acción menos":     st.column_config.TextColumn("Menos frecuente", width="small"),
-            "Sesiones":         st.column_config.NumberColumn("Sesiones", format="%d"),
-            "Media acc/sesión": st.column_config.NumberColumn("Media/sesión", format="%.1f"),
+            "Acción menos":     st.column_config.TextColumn(t["col_accion_menos"],   width="small"),
+            "Sesiones":         st.column_config.NumberColumn(t["col_sesiones"],     format="%d"),
+            "Media acc/sesión": st.column_config.NumberColumn(t["col_media_sesion"], format="%.1f"),
         },
     )
 
@@ -262,13 +331,14 @@ def render_action_chart(df: pd.DataFrame) -> None:
     st.bar_chart(chart_df, use_container_width=True, height=380)
 
 
-def render_detail_table(df: pd.DataFrame) -> None:
+def render_detail_table(df: pd.DataFrame, t: dict) -> None:
     detail_cols = [c for c in df.columns if c.startswith("#")]
     if not detail_cols:
         return
 
     detail_df = df[["Usuario"] + detail_cols].set_index("Usuario")
     detail_df.columns = [c.lstrip("#") for c in detail_df.columns]
+    detail_df.index.name = t["col_usuario"]
 
     st.dataframe(
         detail_df,
@@ -280,13 +350,13 @@ def render_detail_table(df: pd.DataFrame) -> None:
     )
 
 
-def render_element_action_table(element_df: pd.DataFrame) -> None:
+def render_element_action_table(element_df: pd.DataFrame, t: dict) -> None:
     if element_df.empty:
         return
 
     df = element_df.copy()
     df["elemento"] = df["element_id"].map(ELEMENT_LABELS).fillna(df["element_id"].astype(str))
-    df["accion"]   = df["action_id"].map(ACTION_LABELS).fillna(df["action_id"].astype(str))
+    df["accion"]   = df["action_id"].map(t["actions"]).fillna(df["action_id"].astype(str))
 
     pivot = df.pivot_table(
         index=["elemento", "accion"],
@@ -296,20 +366,43 @@ def render_element_action_table(element_df: pd.DataFrame) -> None:
         fill_value=0,
     ).astype(int)
 
-    pivot["Total"] = pivot.sum(axis=1)
-    pivot = pivot.sort_values(["elemento", "Total"], ascending=[True, False])
+    pivot[t["col_total"]] = pivot.sum(axis=1)
+    pivot = pivot.sort_values(["elemento", t["col_total"]], ascending=[True, False])
     pivot = pivot.reset_index()
     pivot.columns.name = None
 
-    user_cols = [c for c in pivot.columns if c not in ("elemento", "accion", "Total")]
+    user_cols = [c for c in pivot.columns if c not in ("elemento", "accion", t["col_total"])]
     col_config = {
-        "elemento": st.column_config.TextColumn("Elemento", width="small"),
-        "accion":   st.column_config.TextColumn("Acción",   width="small"),
-        "Total":    st.column_config.NumberColumn("Total",  format="%d"),
+        "elemento":      st.column_config.TextColumn(t["col_elemento"], width="small"),
+        "accion":        st.column_config.TextColumn(t["col_accion"],   width="small"),
+        t["col_total"]:  st.column_config.NumberColumn(t["col_total"],  format="%d"),
         **{u: st.column_config.NumberColumn(u, format="%d") for u in user_cols},
     }
 
     st.dataframe(pivot, use_container_width=True, hide_index=True, column_config=col_config)
+
+
+def render_lang_selector() -> None:
+    lang = st.session_state.get("lang", "es")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button(
+            "🇪🇸",
+            use_container_width=True,
+            type="primary" if lang == "es" else "secondary",
+            key="btn_es",
+        ):
+            st.session_state.lang = "es"
+            st.rerun()
+    with c2:
+        if st.button(
+            "🇮🇹",
+            use_container_width=True,
+            type="primary" if lang == "it" else "secondary",
+            key="btn_it",
+        ):
+            st.session_state.lang = "it"
+            st.rerun()
 
 
 def main():
@@ -320,41 +413,53 @@ def main():
     )
     st.markdown(CSS, unsafe_allow_html=True)
 
-    st.title("KeyOver1")
-    st.markdown("<span style='color:#8a8fa8;font-size:1.1rem;'>Actividad de usuarios · actualizado cada 60 s</span>", unsafe_allow_html=True)
+    if "lang" not in st.session_state:
+        st.session_state.lang = "es"
+
+    t = TRANSLATIONS[st.session_state.lang]
+
+    title_col, lang_col = st.columns([9, 1])
+    with title_col:
+        st.title("KeyOver1")
+        st.markdown(
+            f"<span style='color:#8a8fa8;font-size:1.1rem;'>{t['subtitle']}</span>",
+            unsafe_allow_html=True,
+        )
+    with lang_col:
+        render_lang_selector()
 
     st.divider()
 
     action_df, session_df, element_df = load_stats()
-    df = build_summary(action_df, session_df)
+    df = build_summary(action_df, session_df, t)
 
     if df.empty:
-        st.warning("No hay datos de actividad en la base de datos.")
+        st.warning(t["no_data"])
         return
 
-    render_kpis(df)
+    render_kpis(df, t)
     st.divider()
 
     col_left, col_right = st.columns([3, 2], gap="large")
 
     with col_left:
-        st.subheader("Resumen por usuario")
-        render_summary_table(df)
+        st.subheader(t["summary_header"])
+        render_summary_table(df, t)
 
     with col_right:
-        st.subheader("Distribución de acciones")
+        st.subheader(t["actions_dist_header"])
         render_action_chart(df)
 
     st.divider()
-    st.subheader("Detalle por acción")
-    render_detail_table(df)
+    st.subheader(t["action_detail_header"])
+    render_detail_table(df, t)
 
     st.divider()
-    st.subheader("Acciones por elemento y usuario")
-    render_element_action_table(element_df)
+    st.subheader(t["element_action_header"])
+    render_element_action_table(element_df, t)
 
     st.markdown(
-        "<p class='caption-text'>KeyOver1 Dashboard · streamlit run dashboard.py</p>",
+        f"<p class='caption-text'>{t['footer']}</p>",
         unsafe_allow_html=True,
     )
 
