@@ -25,8 +25,13 @@ from config.db import get_connection
 
 COMBINED_MODEL_PATH = PROJECT_ROOT / "models" / "combined_model.pkl"
 MIN_PROB = 1e-6
-ACTIVITY_CONTAMINATION = 0.05
-SESSION_CONTAMINATION  = 0.03
+MIN_ACTION_COST = 0.01   # coste mínimo garantizado por cualquier acción (nunca 0)
+ACTIVITY_CONTAMINATION   = 0.05
+SESSION_CONTAMINATION    = 0.03
+FREQUENCY_CONTAMINATION  = 0.05
+MIN_KNOWN_COMBO_FREQ     = 0.005  # combos below this freq are treated as unknown
+
+ALL_ACTION_IDS = [1000000, 1000001, 1000002, 1000003, 1000004, 1000005]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -310,12 +315,133 @@ def score_activities_batch(prepared_df: pd.DataFrame, activity_models: dict) -> 
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# 4.5 MODELO DE FRECUENCIA DE ACCIONES / MODELLO DI FREQUENZA AZIONI
+#
+# El coste de cada acción depende de cuántas veces el usuario ha realizado
+# cada acción dentro de la sesión actual, comparado con su historial.
+# Il costo di ogni azione dipende da quante volte l'utente ha eseguito
+# ciascuna azione nella sessione corrente, rispetto al suo storico.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def build_action_frequency_dataset(assigned_df: pd.DataFrame) -> pd.DataFrame:
+    # Por cada sesión, cuenta cuántas veces se realizó cada action_id.
+    # Per ogni sessione, conta quante volte è stato eseguito ogni action_id.
+    if assigned_df.empty:
+        return pd.DataFrame()
+
+    action_cols = [f"action_{a}" for a in ALL_ACTION_IDS]
+    rows = []
+    for (uid, lid), grp in assigned_df.groupby(["user_id", "login_log_id"], dropna=False):
+        counts = grp["action_id"].value_counts().to_dict()
+        row: dict = {"user_id": int(uid), "login_log_id": int(lid)}
+        for a in ALL_ACTION_IDS:
+            row[f"action_{a}"] = int(counts.get(a, 0))
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def train_action_frequency_models(freq_df: pd.DataFrame) -> dict:
+    # Por usuario: IsolationForest sobre vectores de conteo de acciones por sesión.
+    # Per utente: IsolationForest su vettori di conteggio azioni per sessione.
+    action_cols = [f"action_{a}" for a in ALL_ACTION_IDS]
+    user_models: dict = {}
+
+    for uid in sorted(freq_df["user_id"].dropna().unique()):
+        udf = freq_df[freq_df["user_id"] == uid].copy()
+        if len(udf) < 10:
+            print(f"  [action_freq] user {uid}: dati insufficienti ({len(udf)}), skip.")
+            continue
+
+        X = udf[action_cols].fillna(0).astype(float)
+        model = IsolationForest(n_estimators=200, contamination=FREQUENCY_CONTAMINATION, random_state=42)
+        model.fit(X)
+
+        raw = model.decision_function(X)
+        scores = np.maximum(0.0, -raw)
+        scale = float(np.percentile(scores, 95)) if len(scores) else 1.0
+        scale = max(scale, MIN_PROB)
+
+        # Coste mínimo por acción derivado del historial: 1 / (4 × longitud media de sesión).
+        # Garantiza que incluso la acción más normal acumule coste no nulo.
+        avg_session_length = float(udf[action_cols].sum(axis=1).mean()) if len(udf) > 0 else 10.0
+        min_action_cost = float(max(1.0 / (avg_session_length * 4.0), MIN_ACTION_COST))
+
+        user_models[int(uid)] = {
+            "model":            model,
+            "action_columns":   action_cols,
+            "score_scale":      scale,
+            "min_action_cost":  min_action_cost,
+        }
+        print(f"  [action_freq] user {uid}: {len(udf):,} sesiones | scale={scale:.6f} | min_cost={min_action_cost:.4f}")
+
+    return user_models
+
+
+def predict_action_frequency_cost(
+    combined_model: dict,
+    user_id: int,
+    session_action_counts: dict,
+) -> float:
+    # Puntúa la distribución de acciones actual de la sesión.
+    # Punteggia la distribuzione di azioni corrente della sessione.
+    # Devuelve: coste [min_action_cost, 1.0] — mayor si la distribución es inusual para ese usuario.
+    # Restituisce: costo [min_action_cost, 1.0] — maggiore se la distribuzione è insolita per quell'utente.
+    bundle = combined_model.get("action_frequency", {})
+    uid = int(user_id)
+    if uid not in bundle:
+        return MIN_ACTION_COST
+
+    md = bundle[uid]
+    floor = md.get("min_action_cost", MIN_ACTION_COST)
+    row = {col: float(session_action_counts.get(int(col.split("_")[1]), 0))
+           for col in md["action_columns"]}
+    X = pd.DataFrame([row])[md["action_columns"]]
+    raw_score = float(md["model"].decision_function(X)[0])
+    a_score = max(0.0, -raw_score)
+    return float(max(min(a_score / md["score_scale"], 1.0), floor))
+
+
+def add_frequency_costs(scored_df: pd.DataFrame, action_freq_models: dict) -> pd.DataFrame:
+    # Añade columna freq_cost: coste basado en frecuencia de acciones en sesión.
+    # Aggiunge colonna freq_cost: costo basato sulla frequenza delle azioni in sessione.
+    df = scored_df.copy().reset_index(drop=True)
+    df["freq_cost"] = MIN_ACTION_COST
+
+    for (uid, lid), grp in df.groupby(["user_id", "login_log_id"], dropna=False):
+        uid_int = int(uid)
+        if uid_int not in action_freq_models:
+            continue
+
+        md = action_freq_models[uid_int]
+        floor = md.get("min_action_cost", MIN_ACTION_COST)
+        grp_sorted = grp.sort_values("activity_time")
+        session_counts: dict = {}
+
+        for orig_idx, row in grp_sorted.iterrows():
+            action_id = int(row["action_id"])
+            session_counts[action_id] = session_counts.get(action_id, 0) + 1
+
+            feat = {col: float(session_counts.get(int(col.split("_")[1]), 0))
+                    for col in md["action_columns"]}
+            X = pd.DataFrame([feat])[md["action_columns"]]
+            raw_score = float(md["model"].decision_function(X)[0])
+            a_score = max(0.0, -raw_score)
+            cost = float(max(min(a_score / md["score_scale"], 1.0), floor))
+            df.at[orig_idx, "freq_cost"] = cost
+
+    return df
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # 5. MODELO DE SESIÓN / MODELLO DI SESSIONE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def build_session_prefix_dataset(scored_df: pd.DataFrame) -> pd.DataFrame:
     # Genera una fila por cada punto acumulado dentro de cada sesión (prefijo).
     # Genera una riga per ogni punto accumulato all'interno di ogni sessione (prefisso).
+    # Usa freq_cost (frecuencia ML) si está disponible, sino activity_probability.
+    # Usa freq_cost (frequenza ML) se disponibile, altrimenti activity_probability.
     if scored_df.empty:
         return pd.DataFrame()
 
@@ -323,6 +449,8 @@ def build_session_prefix_dataset(scored_df: pd.DataFrame) -> pd.DataFrame:
     df["activity_time"] = pd.to_datetime(df["activity_time"], errors="coerce")
     df["session_start"] = pd.to_datetime(df["session_start"], errors="coerce")
     df = df.dropna(subset=["activity_time", "session_start"])
+
+    use_freq_cost = "freq_cost" in df.columns
 
     prefix_rows = []
     for (uid, lid), grp in df.groupby(["user_id", "login_log_id"], dropna=False):
@@ -338,7 +466,7 @@ def build_session_prefix_dataset(scored_df: pd.DataFrame) -> pd.DataFrame:
 
         for _, row in grp.iterrows():
             at  = row["activity_time"]
-            cost = max(float(row["activity_probability"]), MIN_PROB)
+            cost = max(float(row["freq_cost"] if use_freq_cost else row["activity_probability"]), MIN_ACTION_COST)
             pred = int(row["activity_prediction"])
             aid  = int(row["action_id"])
             eid  = int(row["element_id"])
@@ -508,14 +636,22 @@ def predict_activity(
     X = _build_feature_matrix_activity(row)
     X = _align(X, md["feature_columns"])
 
-    raw_pred  = md["model"].predict(X)[0]
     raw_score = float(md["model"].decision_function(X)[0])
+    raw_pred  = int(md["model"].predict(X)[0])  # -1=anomalo, 1=normale
 
     combo_key  = f"{int(element_id)}|{int(entity_id)}|{int(action_id)}"
     combo_freq = float(md["combo_frequency"].get(combo_key, 0.0))
     rarity     = 1.0 - combo_freq
 
-    prediction  = 1 if raw_pred == -1 else 0
+    # For elements the user regularly uses, rely on the IF behavioral prediction
+    # (timing, burst patterns) rather than penalizing unseen action/element combos.
+    # Unknown elements are always flagged regardless of IF output.
+    known_elements_set = set(md.get("known_elements", []))
+    if int(element_id) in known_elements_set:
+        prediction = 1 if raw_pred == -1 else 0
+    else:
+        prediction = 1
+
     a_score     = max(0.0, -raw_score)
     m_prob      = min(a_score / md["score_scale"], 1.0)
     probability = max(0.75 * m_prob + 0.25 * rarity, MIN_PROB)
@@ -611,13 +747,13 @@ def load_combined_model(path: Path = COMBINED_MODEL_PATH) -> dict:
 # MAIN / PRINCIPALE
 # ═══════════════════════════════════════════════════════════════════════════════
 def main():
-    print("=== Addestramento modelli combinati (attività + sessione) ===\n")
+    print("=== Addestramento modelli combinati (attività + frequenza + sessione) ===\n")
 
-    print("1/7 Caricamento dati da PostgreSQL...")
+    print("1/9 Caricamento dati da PostgreSQL...")
     login_df, activity_df = load_data()
     print(f"     login_log: {len(login_df):,} righe | activity_log: {len(activity_df):,} righe")
 
-    print("2/7 Assegnazione attività a sessioni...")
+    print("2/9 Assegnazione attività a sessioni...")
     assigned_df = assign_to_sessions(login_df, activity_df)
     print(f"     {len(assigned_df):,} attività assegnate")
 
@@ -625,31 +761,46 @@ def main():
         print("[ERRORE] Nessun dato assegnato. Controlla login_log e activity_log.")
         return
 
-    print("3/7 Preparazione feature di attività...")
+    print("3/9 Preparazione feature di attività...")
     prepared_df = _prepare_activity_features(assigned_df)
     print(f"     {len(prepared_df):,} righe preparate")
 
-    print("4/7 Addestramento modelli di attività...")
+    print("4/9 Addestramento modelli di attività (rilevamento anomalie)...")
     activity_models = train_activity_models(prepared_df)
     if not activity_models:
         print("[ERRORE] Nessun modello di attività addestrato.")
         return
 
-    print("5/7 Calcolo punteggi attività in batch...")
+    print("5/9 Calcolo punteggi attività in batch...")
     scored_df = score_activities_batch(prepared_df, activity_models)
     print(f"     {len(scored_df):,} attività punteggiate")
 
-    print("6/7 Costruzione dataset prefissi di sessione...")
-    prefix_df = build_session_prefix_dataset(scored_df)
-    print(f"     {len(prefix_df):,} prefissi generati")
+    print("6/9 Costruzione dataset frequenze azioni per sessione...")
+    freq_df = build_action_frequency_dataset(assigned_df)
+    print(f"     {len(freq_df):,} sessioni nel dataset di frequenza")
 
-    print("7/7 Addestramento modelli di sessione...")
+    print("7/9 Addestramento modelli di frequenza azioni (costo ML per azione)...")
+    action_freq_models = train_action_frequency_models(freq_df)
+    if not action_freq_models:
+        print("[ERRORE] Nessun modello di frequenza addestrato.")
+        return
+
+    print("8/9 Calcolo costi basati su frequenza azioni e costruzione dataset sessioni...")
+    scored_df = add_frequency_costs(scored_df, action_freq_models)
+    prefix_df = build_session_prefix_dataset(scored_df)
+    print(f"     {len(prefix_df):,} prefissi generati (usando costi ML di frequenza)")
+
+    print("9/9 Addestramento modelli di sessione...")
     session_models = train_session_models(prefix_df)
     if not session_models:
         print("[ERRORE] Nessun modello di sessione addestrato.")
         return
 
-    combined = {"activity": activity_models, "session": session_models}
+    combined = {
+        "activity":         activity_models,
+        "session":          session_models,
+        "action_frequency": action_freq_models,
+    }
     save_combined_model(combined)
     print("\nAddestramento completato con successo.")
 

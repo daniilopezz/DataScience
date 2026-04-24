@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from security.anomaly_guard import evaluate_activity, evaluate_session
+from security.anomaly_guard import evaluate_activity, evaluate_session, evaluate_action_cost, MIN_ACTION_COST
 
 # ─── Mapeo de acciones / Mappatura azioni ─────────────────────────────────────
 ACTIONS: dict[str, tuple[int, str]] = {
@@ -185,9 +185,10 @@ def _process_action(
     action_ids_used: set[int],
     action_history: list[int],
     element_history: list[int],
+    session_action_counts: dict[int, int],
     session_cost_threshold: float = float("inf"),
     known_elements: set[int] | None = None,
-) -> tuple[bool, list, list, set, set, list, list]:
+) -> tuple[bool, list, list, set, set, list, list, dict]:
     action_id, label = ACTIONS[action_option]
     now = datetime.now()
 
@@ -195,17 +196,22 @@ def _process_action(
     # Determina se l'elemento è fuori dal profilo ML dell'utente.
     element_is_unknown = (known_elements is not None and element_id not in known_elements)
 
+    # Actualiza conteo de esta acción en la sesión actual.
+    # Aggiorna il conteggio di questa azione nella sessione corrente.
+    new_counts = dict(session_action_counts)
+    new_counts[action_id] = new_counts.get(action_id, 0) + 1
+
     if combined_model is None:
         act_id = _save_activity_log(cursor, user_id, element_id, DEFAULT_ENTITY_ID, action_id)
         conn.commit()
         print(f"\nAzione '{label}' registrata (ID: {act_id}). [Nessun modello ML]")
         new_ts = action_timestamps + [now]
-        new_cp = cost_parts + [1e-6]
+        new_cp = cost_parts + [MIN_ACTION_COST]
         new_eu = set(elements_used) | {element_id}
         new_au = set(action_ids_used) | {action_id}
         new_ah = action_history + [action_id]
         new_eh = element_history + [element_id]
-        return True, new_cp, new_ts, new_eu, new_au, new_ah, new_eh
+        return True, new_cp, new_ts, new_eu, new_au, new_ah, new_eh, new_counts
 
     try:
         act_result = evaluate_activity(
@@ -219,7 +225,23 @@ def _process_action(
             previous_timestamps=action_timestamps,
         )
 
-        op_cost = float(act_result["anomaly_score"])
+        # Coste base: frecuencia ML personalizado por usuario.
+        # Costo base: frequenza ML personalizzato per utente.
+        op_cost = evaluate_action_cost(combined_model, user_id, new_counts)
+
+        # Acciones anómalas (elementos desconocidos o IF detecta comportamiento anómalo)
+        # reciben coste máximo para acelerar la acumulación hacia el umbral.
+        # Para acciones normales en elementos conocidos, se limita el coste de
+        # frecuencia a 0.5 para no penalizar el uso diversificado pero autorizado.
+        # Azioni anomale ricevono costo massimo; azioni normali su elementi noti
+        # sono limitate a 0.5 per non penalizzare l'uso diversificato autorizzato.
+        is_activity_anomaly = bool(act_result["prediction"] == 1 or element_is_unknown)
+        if is_activity_anomaly:
+            op_cost = 1.0
+        else:
+            op_cost = min(op_cost, 0.5)
+        op_cost = max(op_cost, MIN_ACTION_COST)
+
         new_cp  = cost_parts + [op_cost]
         new_ts  = action_timestamps + [now]
         new_eu  = set(elements_used) | {element_id}
@@ -238,17 +260,10 @@ def _process_action(
         )
 
         sess_result = evaluate_session(combined_model=combined_model, user_id=user_id, **sf)
+        is_session_anomaly = bool(sess_result["prediction"] == 1)
 
         threshold_exceeded = sf["cumulative_cost"] >= session_cost_threshold
-
-        # Elemento fuera del perfil ML → siempre anómalo (regla explícita sobre el modelo).
-        # Elemento fuori dal profilo ML → sempre anomalo (regola esplicita sul modello).
-        final_pred = bool(
-            act_result["prediction"] == 1
-            or sess_result["prediction"] == 1
-            or threshold_exceeded
-            or element_is_unknown
-        )
+        final_pred = bool(is_activity_anomaly or is_session_anomaly or threshold_exceeded)
 
         act_log_id = _save_activity_log(cursor, user_id, element_id, DEFAULT_ENTITY_ID, action_id)
         _save_ml_log(
@@ -269,14 +284,15 @@ def _process_action(
 
         cost_sum_str      = " + ".join(f"{c:.4f}" for c in new_cp)
         threshold_display = f"{session_cost_threshold:.4f}" if session_cost_threshold != float("inf") else "∞"
+        action_counts_display = ", ".join(f"{k}×{v}" for k, v in sorted(new_counts.items()))
 
         print(f"\nAzione eseguita: {label}")
         print(
-            f"  [ML-ACTIVITY] {'ANOMALA' if act_result['prediction'] == 1 or element_is_unknown else 'normale'}"
-            f" | costo azione: {op_cost:.4f}"
+            f"  [ML-ACTIVITY] {'⚠ ANOMALA' if is_activity_anomaly else 'normale'}"
+            f" | costo freq-ML: {op_cost:.4f} | conteggi sessione: [{action_counts_display}]"
         )
         print(
-            f"  [ML-SESSION]  {'ANOMALA' if sess_result['prediction'] == 1 else 'normale'}"
+            f"  [ML-SESSION]  {'⚠ ANOMALA' if is_session_anomaly else 'normale'}"
             f" | score={sess_result['anomaly_score']:.6f}"
             f" | apm={sf['actions_per_minute']:.3f}"
             f" | avg_sec={sf['avg_seconds_between_actions']:.1f}"
@@ -284,24 +300,17 @@ def _process_action(
         print(f"  costo sessione: {cost_sum_str} = {sf['cumulative_cost']:.4f}  [soglia: {threshold_display}]")
         print(f"  Attività registrata (ID: {act_log_id})")
 
+        # Avisos informativos — la sesión continúa salvo que se supere el umbral.
+        # Avvisi informativi — la sessione continua salvo superamento soglia.
         if element_is_unknown:
-            print("\n⚠  Elemento fuori dal profilo ML dell'utente → logout automatico.")
-            _update_logout(cursor, login_log_id)
-            conn.commit()
-            return False, new_cp, new_ts, new_eu, new_au, new_ah, new_eh
-
+            print("  ⚠  Elemento fuori profilo ML → costo massimo applicato.")
         if act_result["prediction"] == 1:
-            print("\n⚠  Attività anomala rilevata dal modello → logout automatico.")
-            _update_logout(cursor, login_log_id)
-            conn.commit()
-            return False, new_cp, new_ts, new_eu, new_au, new_ah, new_eh
+            print("  ⚠  Attività anomala rilevata → costo massimo applicato.")
+        if is_session_anomaly:
+            print("  ⚠  Pattern di sessione anomalo rilevato.")
 
-        if sess_result["prediction"] == 1:
-            print("\n⚠  Sessione anomala rilevata dal modello → logout automatico.")
-            _update_logout(cursor, login_log_id)
-            conn.commit()
-            return False, new_cp, new_ts, new_eu, new_au, new_ah, new_eh
-
+        # El único logout automático es cuando se supera el umbral de coste acumulado.
+        # L'unico logout automatico è quando si supera la soglia del costo cumulativo.
         if threshold_exceeded:
             print(
                 f"\n⚠  Soglia costo sessione superata"
@@ -309,14 +318,14 @@ def _process_action(
             )
             _update_logout(cursor, login_log_id)
             conn.commit()
-            return False, new_cp, new_ts, new_eu, new_au, new_ah, new_eh
+            return False, new_cp, new_ts, new_eu, new_au, new_ah, new_eh, new_counts
 
-        return True, new_cp, new_ts, new_eu, new_au, new_ah, new_eh
+        return True, new_cp, new_ts, new_eu, new_au, new_ah, new_eh, new_counts
 
     except Exception as e:
         conn.rollback()
         print(f"[ERRORE] Elaborazione azione fallita: {e}")
-        return False, cost_parts, action_timestamps, elements_used, action_ids_used, action_history, element_history
+        return False, cost_parts, action_timestamps, elements_used, action_ids_used, action_history, element_history, session_action_counts
 
 
 # ─── Menús / Menu ─────────────────────────────────────────────────────────────
@@ -359,13 +368,14 @@ def run_session(
     session_cost_threshold: float = float("inf"),
     known_elements: set[int] | None = None,
 ):
-    session_started_at  = datetime.now()
-    cost_parts:         list[float]    = []
-    action_timestamps:  list[datetime] = []
-    elements_used:      set[int]       = set()
-    action_ids_used:    set[int]       = set()
-    action_history:     list[int]      = []
-    element_history:    list[int]      = []
+    session_started_at      = datetime.now()
+    cost_parts:             list[float]    = []
+    action_timestamps:      list[datetime] = []
+    elements_used:          set[int]       = set()
+    action_ids_used:        set[int]       = set()
+    action_history:         list[int]      = []
+    element_history:        list[int]      = []
+    session_action_counts:  dict[int, int] = {}
 
     while True:
         all_elements = _get_all_elements(cursor)
@@ -454,11 +464,13 @@ def run_session(
                 action_ids_used=action_ids_used,
                 action_history=action_history,
                 element_history=element_history,
+                session_action_counts=session_action_counts,
                 session_cost_threshold=session_cost_threshold,
                 known_elements=known_elements,
             )
 
-            still_active, cost_parts, action_timestamps, elements_used, action_ids_used, action_history, element_history = result
+            (still_active, cost_parts, action_timestamps, elements_used,
+             action_ids_used, action_history, element_history, session_action_counts) = result
 
             if not still_active:
                 return

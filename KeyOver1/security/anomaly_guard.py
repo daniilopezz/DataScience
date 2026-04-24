@@ -25,7 +25,9 @@ from MachineLearning.train_models import (
     load_combined_model,
     predict_activity,
     predict_session,
+    predict_action_frequency_cost,
     COMBINED_MODEL_PATH,
+    MIN_ACTION_COST,
 )
 
 MIN_PROB = 1e-6
@@ -133,6 +135,20 @@ def evaluate_login(profiles: dict, user_id: int, logged_at=None) -> dict:
         "is_anomalous": anomalous,
         "message": "Accesso fuori orario o giorno insolito." if anomalous else "",
     }
+
+
+# ─── Coste ML por frecuencia de acción / Costo ML per frequenza azione ────────
+
+def evaluate_action_cost(
+    combined_model: dict,
+    user_id: int,
+    session_action_counts: dict,
+) -> float:
+    # Devuelve el coste de la acción basado en la distribución de frecuencias
+    # de acciones en la sesión actual (modelo IsolationForest por usuario).
+    # Restituisce il costo dell'azione basato sulla distribuzione delle frequenze
+    # di azioni nella sessione corrente (modello IsolationForest per utente).
+    return predict_action_frequency_cost(combined_model, user_id, session_action_counts)
 
 
 # ─── Evaluación de actividad / Valutazione attività ───────────────────────────
