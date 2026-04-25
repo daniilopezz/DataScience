@@ -39,6 +39,29 @@
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb { background: var(--accent-dark); border-radius: 3px; }
 
+        /* ─── PRELOADER ─── */
+        #preloader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.7s ease, visibility 0.7s ease;
+        }
+        #preloader.hidden { opacity: 0; visibility: hidden; }
+        .pre-logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: 0.1em;
+            animation: prePulse 1.2s ease-in-out infinite alternate;
+        }
+        .pre-logo span { color: var(--accent); }
+        @keyframes prePulse { from { opacity: 0.3; } to { opacity: 1; } }
+
         /* ─── NAV ─── */
         nav {
             position: fixed;
@@ -79,6 +102,71 @@
             transition: color 0.3s;
         }
         .nav-links a:hover { color: var(--accent); }
+
+        .nav-right { display: flex; align-items: center; gap: 1.25rem; }
+
+        /* ─── HAMBURGER ─── */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .hamburger span {
+            display: block;
+            width: 22px;
+            height: 1.5px;
+            background: var(--text);
+            border-radius: 2px;
+            transition: transform 0.35s, opacity 0.35s, width 0.35s;
+            transform-origin: center;
+        }
+        .hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+        .hamburger.open span:nth-child(2) { opacity: 0; width: 0; }
+        .hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+        /* ─── MOBILE MENU ─── */
+        .mob-menu {
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 8, 8, 0.98);
+            backdrop-filter: blur(20px);
+            z-index: 150;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s, visibility 0.4s;
+        }
+        .mob-menu.open { opacity: 1; visibility: visible; }
+        .mob-menu ul { list-style: none; text-align: center; }
+        .mob-menu ul li { margin: 1.5rem 0; overflow: hidden; }
+        .mob-menu ul a {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: -0.01em;
+            transition: color 0.3s;
+            display: block;
+            transform: translateY(30px);
+            opacity: 0;
+            transition: color 0.3s, transform 0.45s, opacity 0.45s;
+        }
+        .mob-menu.open ul a {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .mob-menu ul li:nth-child(1) a { transition-delay: 0.05s; }
+        .mob-menu ul li:nth-child(2) a { transition-delay: 0.1s; }
+        .mob-menu ul li:nth-child(3) a { transition-delay: 0.15s; }
+        .mob-menu ul li:nth-child(4) a { transition-delay: 0.2s; }
+        .mob-menu ul a:hover { color: var(--accent); }
 
         /* ─── HERO ─── */
         .hero {
@@ -317,8 +405,11 @@
             border-radius: 50px;
             font-size: 0.78rem;
             color: var(--text-muted);
+            margin-bottom: 2rem;
         }
         .hero-pill strong { color: var(--accent); font-size: 1.15rem; font-family: 'Playfair Display', serif; font-weight: 600; }
+
+        .hero-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
         /* Scroll indicator */
         .scroll-hint {
@@ -372,9 +463,7 @@
             align-items: center;
         }
 
-        .about-img {
-            position: relative;
-        }
+        .about-img { position: relative; }
         .about-img::before {
             content: '';
             position: absolute;
@@ -497,9 +586,9 @@
             background: var(--surface);
             cursor: zoom-in;
         }
-        .p-item:nth-child(1) { grid-column: span 2; grid-row: span 1; }
-        .p-item:nth-child(6) { grid-column: span 2; grid-row: span 1; }
-        .p-item:nth-child(10) { grid-column: span 2; grid-row: span 1; }
+        .p-item:nth-child(1) { grid-column: span 2; }
+        .p-item:nth-child(6) { grid-column: span 2; }
+        .p-item:nth-child(10) { grid-column: span 2; }
 
         .p-item img {
             width: 100%;
@@ -626,7 +715,7 @@
             justify-content: center;
         }
         .lbx.open { display: flex; }
-        .lbx img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
+        .lbx img { max-width: 85vw; max-height: 88vh; object-fit: contain; border-radius: 4px; }
         .lbx-close {
             position: absolute;
             top: 1.75rem; right: 2rem;
@@ -636,8 +725,63 @@
             cursor: pointer;
             transition: color 0.2s;
             line-height: 1;
+            z-index: 2;
         }
         .lbx-close:hover { color: white; }
+        .lbx-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.55);
+            font-size: 1.5rem;
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s;
+            z-index: 2;
+        }
+        .lbx-arrow:hover { background: rgba(255,255,255,0.08); color: white; border-color: rgba(201,169,110,0.5); }
+        .lbx-prev { left: 1.5rem; }
+        .lbx-next { right: 1.5rem; }
+        .lbx-counter {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.15em;
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ─── BACK TO TOP ─── */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 44px; height: 44px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.35s;
+            z-index: 100;
+        }
+        .back-to-top.visible { opacity: 1; visibility: visible; transform: translateY(0); }
+        .back-to-top:hover { background: var(--accent); border-color: var(--accent); color: #080808; }
 
         /* ─── ANIMATIONS ─── */
         .reveal {
@@ -665,6 +809,7 @@
             .hero-text { text-align: center; }
             .hero-eyebrow { justify-content: center; }
             .hero-sub { margin: 0 auto 2.5rem; }
+            .hero-cta { justify-content: center; }
             .about-grid { grid-template-columns: 1fr; gap: 3rem; }
             .servizi-grid { grid-template-columns: 1fr; }
             .portfolio-grid { grid-auto-rows: 220px; }
@@ -673,6 +818,7 @@
         @media (max-width: 640px) {
             nav { padding: 1rem 1.5rem; }
             .nav-links { display: none; }
+            .hamburger { display: flex; }
             section { padding: 5rem 1.5rem; }
             .hero { padding: 5rem 1.5rem 4rem; }
             .portfolio-grid { grid-template-columns: 1fr 1fr; grid-auto-rows: 180px; }
@@ -681,6 +827,7 @@
             .metric { min-width: 45%; }
             .metric + .metric::before { display: none; }
             footer { padding: 1.5rem; }
+            .lbx-arrow { display: none; }
         }
 
         /* ─── LANG SWITCHER ─── */
@@ -710,20 +857,40 @@
 </head>
 <body>
 
+<!-- ── PRELOADER ── -->
+<div id="preloader">
+    <div class="pre-logo">M<span>.</span>P</div>
+</div>
+
 <!-- ── NAV ── -->
 <nav id="nav">
     <a href="#" class="nav-logo">M<span>.</span>P</a>
     <ul class="nav-links">
-        <li><a href="#chi-sono">Chi Sono</a></li>
-        <li><a href="#portfolio">Portfolio</a></li>
-        <li><a href="#servizi">Servizi</a></li>
-        <li><a href="#contatti">Contatti</a></li>
+        <li><a href="#chi-sono" id="nl-about">Chi Sono</a></li>
+        <li><a href="#portfolio" id="nl-portfolio">Portfolio</a></li>
+        <li><a href="#servizi" id="nl-servizi">Servizi</a></li>
+        <li><a href="#contatti" id="nl-contatti">Contatti</a></li>
     </ul>
-    <div class="lang-switcher">
-        <button class="lang-btn active" id="btn-it" onclick="setLang('it')" title="Italiano">🇮🇹</button>
-        <button class="lang-btn" id="btn-es" onclick="setLang('es')" title="Español">🇪🇸</button>
+    <div class="nav-right">
+        <div class="lang-switcher">
+            <button class="lang-btn active" id="btn-it" onclick="setLang('it')" title="Italiano">🇮🇹</button>
+            <button class="lang-btn" id="btn-es" onclick="setLang('es')" title="Español">🇪🇸</button>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Menu" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </button>
     </div>
 </nav>
+
+<!-- ── MOBILE MENU ── -->
+<div class="mob-menu" id="mobMenu">
+    <ul>
+        <li><a href="#chi-sono" onclick="closeMenu()" id="ml-about">Chi Sono</a></li>
+        <li><a href="#portfolio" onclick="closeMenu()" id="ml-portfolio">Portfolio</a></li>
+        <li><a href="#servizi" onclick="closeMenu()" id="ml-servizi">Servizi</a></li>
+        <li><a href="#contatti" onclick="closeMenu()" id="ml-contatti">Contatti</a></li>
+    </ul>
+</div>
 
 <!-- ── HERO ── -->
 <section class="hero" id="home">
@@ -741,67 +908,71 @@
                 </div>
                 <div class="ig-info">
                     <div class="ig-name">Massimo Privitera</div>
-                    <a class="ig-handle" href="https://www.instagram.com/_massimo_privitera_/" target="_blank">@_massimo_privitera_</a>
-                    <div class="ig-cat">📷 Fotografo · Agente Assicurativo</div>
+                    <a class="ig-handle" href="https://www.instagram.com/_massimo_privitera_/" target="_blank" rel="noopener noreferrer">@_massimo_privitera_</a>
+                    <div class="ig-cat" id="igCat">📷 Fotografo · Agente Assicurativo</div>
                 </div>
             </div>
 
             <div class="ig-stats">
                 <div class="ig-stat">
                     <span class="ig-stat-n">2.371</span>
-                    <div class="ig-stat-l">Post</div>
+                    <div class="ig-stat-l" id="sl-post">Post</div>
                 </div>
                 <div class="ig-stat">
                     <span class="ig-stat-n">808</span>
-                    <div class="ig-stat-l">Follower</div>
+                    <div class="ig-stat-l" id="sl-follower">Follower</div>
                 </div>
                 <div class="ig-stat">
                     <span class="ig-stat-n">1.226</span>
-                    <div class="ig-stat-l">Seguiti</div>
+                    <div class="ig-stat-l" id="sl-seguiti">Seguiti</div>
                 </div>
             </div>
 
-            <div class="ig-bio">
+            <div class="ig-bio" id="igBio">
                 Fotografo con la passione per le strade, le geometrie e la luce.<br>
                 Agente Assicurativo · <strong>Unipol Assicurazioni SpA</strong>
             </div>
 
             <div class="ig-btns">
-                <a href="mailto:lopezaguirrecoc@gmail.com" class="ig-btn primary">Contatta</a>
-                <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" class="ig-btn">Instagram</a>
-                <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" class="ig-btn">LinkedIn</a>
+                <a href="https://ig.me/m/_massimo_privitera_" target="_blank" rel="noopener noreferrer" class="ig-btn primary" id="igBtnContact">Contatta</a>
+                <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" rel="noopener noreferrer" class="ig-btn">Instagram</a>
+                <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" rel="noopener noreferrer" class="ig-btn">LinkedIn</a>
             </div>
 
             <div class="ig-grid">
-                <img src="assets/post-1.jpg" alt="">
-                <img src="assets/post-2.jpg" alt="">
-                <img src="assets/post-3.jpg" alt="">
-                <img src="assets/post-4.jpg" alt="">
-                <img src="assets/post-5.jpg" alt="">
-                <img src="assets/post-6.jpg" alt="">
+                <img src="assets/post-1.jpg" alt="" loading="lazy">
+                <img src="assets/post-2.jpg" alt="" loading="lazy">
+                <img src="assets/post-3.jpg" alt="" loading="lazy">
+                <img src="assets/post-4.jpg" alt="" loading="lazy">
+                <img src="assets/post-5.jpg" alt="" loading="lazy">
+                <img src="assets/post-6.jpg" alt="" loading="lazy">
             </div>
         </div>
 
         <!-- Title -->
         <div class="hero-text">
-            <div class="hero-eyebrow">Fotografo — Italia</div>
-            <h1 class="hero-h1">
+            <div class="hero-eyebrow" id="heroEyebrow">Fotografo — Italia</div>
+            <h1 class="hero-h1" id="heroH1">
                 Geometrie<br>
                 di <em>luce</em><br>
                 e silenzio
             </h1>
-            <p class="hero-sub">
+            <p class="hero-sub" id="heroSub">
                 Ogni scatto è un istante cristallizzato. Strade, architetture e paesaggi raccontati attraverso un obiettivo sensibile alla bellezza nascosta nel quotidiano.
             </p>
             <div class="hero-pill">
                 <strong>808</strong>
-                <span>persone seguono questa storia</span>
+                <span id="heroPill">persone seguono questa storia</span>
+            </div>
+            <div class="hero-cta">
+                <a href="#portfolio" class="cta gold" id="heroCta1">Esplora il Portfolio</a>
+                <a href="#contatti" class="cta outline" id="heroCta2">Parliamoci</a>
             </div>
         </div>
     </div>
 
     <div class="scroll-hint">
-        <span>Scorri</span>
+        <span id="scrollHint">Scorri</span>
         <div class="scroll-line"></div>
     </div>
 </section>
@@ -811,21 +982,21 @@
     <div class="container">
         <div class="about-grid">
             <div class="about-img reveal">
-                <img src="assets/post-7.jpg" alt="Massimo Privitera — scatto fotografico">
+                <img src="assets/post-7.jpg" alt="Massimo Privitera — scatto fotografico" loading="lazy">
             </div>
             <div class="about-copy">
-                <div class="s-label reveal">Chi Sono</div>
-                <h2 class="s-title reveal d1">L'uomo<br>dietro<br><em>l'obiettivo</em></h2>
-                <p class="reveal d2">
+                <div class="s-label reveal" id="aboutLabel">Chi Sono</div>
+                <h2 class="s-title reveal d1" id="aboutTitle">L'uomo<br>dietro<br><em>l'obiettivo</em></h2>
+                <p class="reveal d2" id="aboutP1">
                     Mi chiamo <strong>Massimo Privitera</strong>. Fotografo con una passione viscerale per le strade, le architetture e i paesaggi urbani. Con oltre <strong>2.371 scatti pubblicati</strong>, ogni fotografia è il racconto silenzioso di un istante che non ritorna.
                 </p>
-                <p class="reveal d3">
+                <p class="reveal d3" id="aboutP2">
                     Il mio sguardo si muove tra il bianco e nero più essenziale e la malinconia dei paesaggi costieri italiani. Geometrie, luci radenti, ombre lunghe: trovo bellezza nell'ordinario, nella strada di ogni giorno, in ciò che molti guardano senza davvero vedere.
                 </p>
-                <p class="reveal d3">
+                <p class="reveal d3" id="aboutP3">
                     Professionalmente sono anche <strong>Agente Assicurativo</strong> presso <strong>Unipol Assicurazioni SpA</strong> — due mondi uniti dallo stesso rigore e dalla stessa attenzione al dettaglio.
                 </p>
-                <div class="tags reveal d4">
+                <div class="tags reveal d4" id="tagsWrap">
                     <span class="tag">Street Photography</span>
                     <span class="tag">Bianco &amp; Nero</span>
                     <span class="tag">Architettura</span>
@@ -844,15 +1015,15 @@
         <div class="metrics-row">
             <div class="metric reveal">
                 <span class="metric-n" data-target="2371">0</span>
-                <div class="metric-l">Scatti pubblicati</div>
+                <div class="metric-l" id="ml-scatti">Scatti pubblicati</div>
             </div>
             <div class="metric reveal d1">
                 <span class="metric-n" data-target="808">0</span>
-                <div class="metric-l">Follower su Instagram</div>
+                <div class="metric-l" id="ml-follower">Follower su Instagram</div>
             </div>
             <div class="metric reveal d2">
                 <span class="metric-n" data-target="1226">0</span>
-                <div class="metric-l">Connessioni</div>
+                <div class="metric-l" id="ml-connessioni">Connessioni</div>
             </div>
         </div>
     </div>
@@ -863,55 +1034,55 @@
     <div class="container">
         <div class="portfolio-head">
             <div>
-                <div class="s-label reveal">Portfolio</div>
-                <h2 class="s-title reveal d1">Gli scatti<br>più recenti</h2>
+                <div class="s-label reveal" id="portfolioLabel">Portfolio</div>
+                <h2 class="s-title reveal d1" id="portfolioTitle">Gli scatti<br>più recenti</h2>
             </div>
-            <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank">Vedi su Instagram →</a>
+            <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" rel="noopener noreferrer" id="portfolioLink">Vedi su Instagram →</a>
         </div>
 
-        <div class="portfolio-grid reveal">
-            <div class="p-item">
-                <img src="assets/post-1.jpg" alt="Geometrie urbane" onclick="lbOpen(this.src)">
+        <div class="portfolio-grid reveal" id="portfolioGrid">
+            <div class="p-item" onclick="lbOpen(0)">
+                <img src="assets/post-1.jpg" alt="Geometrie urbane" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Geometrie urbane · Aprile 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-2.jpg" alt="La strada" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(1)">
+                <img src="assets/post-2.jpg" alt="La strada" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">La strada · Aprile 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-3.jpg" alt="Texture" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(2)">
+                <img src="assets/post-3.jpg" alt="Texture" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Texture · Aprile 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-4.jpg" alt="Lungomare" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(3)">
+                <img src="assets/post-4.jpg" alt="Lungomare" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Lungomare · Marzo 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-5.jpg" alt="Crepuscolo" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(4)">
+                <img src="assets/post-5.jpg" alt="Crepuscolo" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Crepuscolo · Marzo 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-6.jpg" alt="Nebbia" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(5)">
+                <img src="assets/post-6.jpg" alt="Nebbia" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Nebbia · Marzo 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-7.jpg" alt="Strade" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(6)">
+                <img src="assets/post-7.jpg" alt="Strade" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Strade · Febbraio 2026</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-8.jpg" alt="Inverno" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(7)">
+                <img src="assets/post-8.jpg" alt="Inverno" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Inverno · Dicembre 2025</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-9.jpg" alt="Paesaggio" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(8)">
+                <img src="assets/post-9.jpg" alt="Paesaggio" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Paesaggio · Dicembre 2025</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-10.jpg" alt="Luce" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(9)">
+                <img src="assets/post-10.jpg" alt="Luce" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Luce · Dicembre 2025</span></div>
             </div>
-            <div class="p-item">
-                <img src="assets/post-11.jpg" alt="Ombre" onclick="lbOpen(this.src)">
+            <div class="p-item" onclick="lbOpen(10)">
+                <img src="assets/post-11.jpg" alt="Ombre" loading="lazy">
                 <div class="p-overlay"><span class="p-caption">Ombre · Dicembre 2025</span></div>
             </div>
         </div>
@@ -921,27 +1092,27 @@
 <!-- ── SERVIZI ── -->
 <section id="servizi">
     <div class="container">
-        <div class="s-label reveal">Servizi</div>
-        <h2 class="s-title reveal d1">Cosa posso<br>fare per te</h2>
+        <div class="s-label reveal" id="serviziLabel">Servizi</div>
+        <h2 class="s-title reveal d1" id="serviziTitle">Cosa posso<br>fare per te</h2>
 
         <div class="servizi-grid">
             <div class="s-card reveal">
                 <span class="s-icon">🏙️</span>
-                <div class="s-name">Fotografia Urbana</div>
-                <p class="s-desc">Strade, architetture e angoli nascosti delle città. Ogni scatto racconta l'anima di un luogo con uno sguardo unico e irripetibile.</p>
-                <div class="s-price">Contattami per il preventivo</div>
+                <div class="s-name" id="s1Name">Fotografia Urbana</div>
+                <p class="s-desc" id="s1Desc">Strade, architetture e angoli nascosti delle città. Ogni scatto racconta l'anima di un luogo con uno sguardo unico e irripetibile.</p>
+                <div class="s-price" id="s1Price">Contattami per il preventivo</div>
             </div>
             <div class="s-card reveal d1">
                 <span class="s-icon">🌊</span>
-                <div class="s-name">Paesaggi &amp; Natura</div>
-                <p class="s-desc">Dal mare al cielo, dalla nebbia all'alba. La bellezza del paesaggio italiano attraverso un occhio attento alla luce e all'atmosfera.</p>
-                <div class="s-price">Contattami per il preventivo</div>
+                <div class="s-name" id="s2Name">Paesaggi &amp; Natura</div>
+                <p class="s-desc" id="s2Desc">Dal mare al cielo, dalla nebbia all'alba. La bellezza del paesaggio italiano attraverso un occhio attento alla luce e all'atmosfera.</p>
+                <div class="s-price" id="s2Price">Contattami per il preventivo</div>
             </div>
             <div class="s-card reveal d2">
                 <span class="s-icon">👤</span>
-                <div class="s-name">Ritratti</div>
-                <p class="s-desc">Sessioni fotografiche individuali con uno stile autentico, ricercato ed essenziale. Catturiamo la tua vera essenza senza filtri.</p>
-                <div class="s-price">Contattami per il preventivo</div>
+                <div class="s-name" id="s3Name">Ritratti</div>
+                <p class="s-desc" id="s3Desc">Sessioni fotografiche individuali con uno stile autentico, ricercato ed essenziale. Catturiamo la tua vera essenza senza filtri.</p>
+                <div class="s-price" id="s3Price">Contattami per il preventivo</div>
             </div>
         </div>
     </div>
@@ -951,15 +1122,14 @@
 <section id="contatti">
     <div class="container">
         <div class="contatti-wrap">
-            <div class="s-label reveal">Contatti</div>
-            <h2 class="s-title reveal d1">Parliamo del<br>tuo <em>progetto</em></h2>
-            <p class="reveal d2">
+            <div class="s-label reveal" id="contattiLabel">Contatti</div>
+            <h2 class="s-title reveal d1" id="contattiTitle">Parliamo del<br>tuo <em>progetto</em></h2>
+            <p class="reveal d2" id="contattiP">
                 Hai un'idea, un servizio fotografico da realizzare o vuoi semplicemente un preventivo? Scrivimi — rispondo sempre con piacere.
             </p>
             <div class="cta-row reveal d3">
-                <a href="mailto:lopezaguirrecoc@gmail.com" class="cta gold">✉ Invia un'email</a>
-                <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" class="cta outline">📷 Instagram</a>
-                <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" class="cta outline">💼 LinkedIn</a>
+                <a href="https://ig.me/m/_massimo_privitera_" target="_blank" rel="noopener noreferrer" class="cta gold" id="ctaDm">💬 Scrivimi su Instagram</a>
+                <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" rel="noopener noreferrer" class="cta outline" id="ctaLinkedin">💼 LinkedIn</a>
             </div>
         </div>
     </div>
@@ -968,29 +1138,43 @@
 <!-- ── FOOTER ── -->
 <footer>
     <div class="f-logo">M<span>.</span>P</div>
-    <div class="f-copy">© 2026 Massimo Privitera · Tutti i diritti riservati</div>
+    <div class="f-copy" id="footerCopy">© 2026 Massimo Privitera · Tutti i diritti riservati</div>
     <div class="f-links">
-        <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank">Instagram</a>
-        <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank">LinkedIn</a>
-        <a href="mailto:lopezaguirrecoc@gmail.com">Email</a>
+        <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" rel="noopener noreferrer" id="fInstagram">Instagram</a>
+        <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" rel="noopener noreferrer" id="fLinkedin">LinkedIn</a>
+        <a href="#contatti" id="fContact">Contatto</a>
     </div>
 </footer>
 
 <!-- ── LIGHTBOX ── -->
 <div class="lbx" id="lbx" onclick="lbClose()">
     <button class="lbx-close" onclick="lbClose()">✕</button>
+    <button class="lbx-arrow lbx-prev" onclick="event.stopPropagation(); lbPrev()">&#8592;</button>
     <img id="lbxImg" src="" alt="" onclick="event.stopPropagation()">
+    <button class="lbx-arrow lbx-next" onclick="event.stopPropagation(); lbNext()">&#8594;</button>
+    <div class="lbx-counter" id="lbxCounter"></div>
 </div>
 
+<!-- ── BACK TO TOP ── -->
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Torna su">↑</button>
+
 <script>
+    // ── PRELOADER ──
+    window.addEventListener('load', () => {
+        const pre = document.getElementById('preloader');
+        setTimeout(() => pre.classList.add('hidden'), 400);
+    });
+
     // ── LANGUAGE SWITCHER ──
     const T = {
       it: {
-        navChiSono:'Chi Sono', navPortfolio:'Portfolio', navServizi:'Servizi', navContatti:'Contatti',
+        navAbout:'Chi Sono', navPortfolio:'Portfolio', navServizi:'Servizi', navContatti:'Contatti',
         heroEyebrow:'Fotografo — Italia',
         heroH1:'Geometrie<br>di <em>luce</em><br>e silenzio',
         heroSub:'Ogni scatto è un istante cristallizzato. Strade, architetture e paesaggi raccontati attraverso un obiettivo sensibile alla bellezza nascosta nel quotidiano.',
         heroPill:'persone seguono questa storia',
+        heroCta1:'Esplora il Portfolio',
+        heroCta2:'Parliamoci',
         scrollHint:'Scorri',
         igCat:'📷 Fotografo · Agente Assicurativo',
         igBio:'Fotografo con la passione per le strade, le geometrie e la luce.<br>Agente Assicurativo · <strong>Unipol Assicurazioni SpA</strong>',
@@ -1009,28 +1193,25 @@
         captions:['Geometrie urbane · Aprile 2026','La strada · Aprile 2026','Texture · Aprile 2026','Lungomare · Marzo 2026','Crepuscolo · Marzo 2026','Nebbia · Marzo 2026','Strade · Febbraio 2026','Inverno · Dicembre 2025','Paesaggio · Dicembre 2025','Luce · Dicembre 2025','Ombre · Dicembre 2025'],
         serviziLabel:'Servizi',
         serviziTitle:'Cosa posso<br>fare per te',
-        s1Name:'Fotografia Urbana',
-        s1Desc:'Strade, architetture e angoli nascosti delle città. Ogni scatto racconta l\'anima di un luogo con uno sguardo unico e irripetibile.',
-        s2Name:'Paesaggi & Natura',
-        s2Desc:'Dal mare al cielo, dalla nebbia all\'alba. La bellezza del paesaggio italiano attraverso un occhio attento alla luce e all\'atmosfera.',
-        s3Name:'Ritratti',
-        s3Desc:'Sessioni fotografiche individuali con uno stile autentico, ricercato ed essenziale. Catturiamo la tua vera essenza senza filtri.',
-        sPrice:'Contattami per il preventivo',
+        s1Name:'Fotografia Urbana', s1Desc:'Strade, architetture e angoli nascosti delle città. Ogni scatto racconta l\'anima di un luogo con uno sguardo unico e irripetibile.', s1Price:'Contattami per il preventivo',
+        s2Name:'Paesaggi & Natura', s2Desc:'Dal mare al cielo, dalla nebbia all\'alba. La bellezza del paesaggio italiano attraverso un occhio attento alla luce e all\'atmosfera.', s2Price:'Contattami per il preventivo',
+        s3Name:'Ritratti', s3Desc:'Sessioni fotografiche individuali con uno stile autentico, ricercato ed essenziale. Catturiamo la tua vera essenza senza filtri.', s3Price:'Contattami per il preventivo',
         contattiLabel:'Contatti',
         contattiTitle:'Parliamo del<br>tuo <em>progetto</em>',
         contattiP:'Hai un\'idea, un servizio fotografico da realizzare o vuoi semplicemente un preventivo? Scrivimi — rispondo sempre con piacere.',
-        ctaEmail:'✉ Invia un\'email',
-        ctaInstagram:'📷 Instagram',
+        ctaDm:'💬 Scrivimi su Instagram',
         ctaLinkedin:'💼 LinkedIn',
         footerCopy:'© 2026 Massimo Privitera · Tutti i diritti riservati',
-        fInstagram:'Instagram', fLinkedin:'LinkedIn', fEmail:'Email',
+        fInstagram:'Instagram', fLinkedin:'LinkedIn', fContact:'Contatto',
       },
       es: {
-        navChiSono:'Quién Soy', navPortfolio:'Portfolio', navServizi:'Servicios', navContatti:'Contacto',
+        navAbout:'Quién Soy', navPortfolio:'Portfolio', navServizi:'Servicios', navContatti:'Contacto',
         heroEyebrow:'Fotógrafo — Italia',
         heroH1:'Geometrías<br>de <em>luz</em><br>y silencio',
         heroSub:'Cada disparo es un instante cristalizado. Calles, arquitecturas y paisajes narrados a través de un objetivo sensible a la belleza oculta en lo cotidiano.',
         heroPill:'personas siguen esta historia',
+        heroCta1:'Explorar el Portfolio',
+        heroCta2:'Hablemos',
         scrollHint:'Desplaza',
         igCat:'📷 Fotógrafo · Agente de Seguros',
         igBio:'Fotógrafo apasionado por las calles, las geometrías y la luz.<br>Agente de Seguros · <strong>Unipol Assicurazioni SpA</strong>',
@@ -1049,134 +1230,142 @@
         captions:['Geometrías urbanas · Abril 2026','La calle · Abril 2026','Texturas · Abril 2026','Paseo marítimo · Marzo 2026','Crepúsculo · Marzo 2026','Niebla · Marzo 2026','Calles · Febrero 2026','Invierno · Diciembre 2025','Paisaje · Diciembre 2025','Luz · Diciembre 2025','Sombras · Diciembre 2025'],
         serviziLabel:'Servicios',
         serviziTitle:'Qué puedo<br>hacer por ti',
-        s1Name:'Fotografía Urbana',
-        s1Desc:'Calles, arquitecturas y rincones escondidos de las ciudades. Cada disparo narra el alma de un lugar con una mirada única e irrepetible.',
-        s2Name:'Paisajes & Naturaleza',
-        s2Desc:'Del mar al cielo, de la niebla al alba. La belleza del paisaje italiano a través de un ojo atento a la luz y la atmósfera.',
-        s3Name:'Retratos',
-        s3Desc:'Sesiones fotográficas individuales con un estilo auténtico, cuidado y esencial. Capturamos tu verdadera esencia sin filtros.',
-        sPrice:'Contáctame para el presupuesto',
+        s1Name:'Fotografía Urbana', s1Desc:'Calles, arquitecturas y rincones escondidos de las ciudades. Cada disparo narra el alma de un lugar con una mirada única e irrepetible.', s1Price:'Contáctame para el presupuesto',
+        s2Name:'Paisajes & Naturaleza', s2Desc:'Del mar al cielo, de la niebla al alba. La belleza del paisaje italiano a través de un ojo atento a la luz y la atmósfera.', s2Price:'Contáctame para el presupuesto',
+        s3Name:'Retratos', s3Desc:'Sesiones fotográficas individuales con un estilo auténtico, cuidado y esencial. Capturamos tu verdadera esencia sin filtros.', s3Price:'Contáctame para el presupuesto',
         contattiLabel:'Contacto',
         contattiTitle:'Hablemos de<br>tu <em>proyecto</em>',
         contattiP:'¿Tienes una idea, un servicio fotográfico que realizar o simplemente quieres un presupuesto? Escríbeme — siempre respondo con gusto.',
-        ctaEmail:'✉ Enviar un email',
-        ctaInstagram:'📷 Instagram',
+        ctaDm:'💬 Escríbeme en Instagram',
         ctaLinkedin:'💼 LinkedIn',
         footerCopy:'© 2026 Massimo Privitera · Todos los derechos reservados',
-        fInstagram:'Instagram', fLinkedin:'LinkedIn', fEmail:'Email',
+        fInstagram:'Instagram', fLinkedin:'LinkedIn', fContact:'Contacto',
       }
     };
 
+    function q(s) { return document.querySelector(s); }
+    function qi(id) { return document.getElementById(id); }
+
     function setLang(lang) {
       const t = T[lang];
-      const q = s => document.querySelector(s);
-      const qa = s => Array.from(document.querySelectorAll(s));
 
       // Nav
-      q('.nav-links a[href="#chi-sono"]').textContent = t.navChiSono;
-      q('.nav-links a[href="#portfolio"]').textContent = t.navPortfolio;
-      q('.nav-links a[href="#servizi"]').textContent = t.navServizi;
-      q('.nav-links a[href="#contatti"]').textContent = t.navContatti;
+      qi('nl-about').textContent = t.navAbout;
+      qi('nl-portfolio').textContent = t.navPortfolio;
+      qi('nl-servizi').textContent = t.navServizi;
+      qi('nl-contatti').textContent = t.navContatti;
+      qi('ml-about').textContent = t.navAbout;
+      qi('ml-portfolio').textContent = t.navPortfolio;
+      qi('ml-servizi').textContent = t.navServizi;
+      qi('ml-contatti').textContent = t.navContatti;
 
       // Hero
-      q('.hero-eyebrow').textContent = t.heroEyebrow;
-      q('.hero-h1').innerHTML = t.heroH1;
-      q('.hero-sub').textContent = t.heroSub;
-      q('.hero-pill span').textContent = t.heroPill;
-      q('.scroll-hint span').textContent = t.scrollHint;
+      qi('heroEyebrow').textContent = t.heroEyebrow;
+      qi('heroH1').innerHTML = t.heroH1;
+      qi('heroSub').textContent = t.heroSub;
+      qi('heroPill').textContent = t.heroPill;
+      qi('heroCta1').textContent = t.heroCta1;
+      qi('heroCta2').textContent = t.heroCta2;
+      qi('scrollHint').textContent = t.scrollHint;
 
       // IG Card
-      q('.ig-cat').textContent = t.igCat;
-      q('.ig-bio').innerHTML = t.igBio;
-      q('.ig-btns .ig-btn.primary').textContent = t.igBtnContact;
-      const sl = qa('.ig-stat-l');
-      if (sl[0]) sl[0].textContent = t.statPost;
-      if (sl[1]) sl[1].textContent = t.statFollower;
-      if (sl[2]) sl[2].textContent = t.statSeguiti;
+      qi('igCat').textContent = t.igCat;
+      qi('igBio').innerHTML = t.igBio;
+      qi('igBtnContact').textContent = t.igBtnContact;
+      qi('sl-post').textContent = t.statPost;
+      qi('sl-follower').textContent = t.statFollower;
+      qi('sl-seguiti').textContent = t.statSeguiti;
 
       // About
-      q('#chi-sono .s-label').textContent = t.aboutLabel;
-      q('#chi-sono .s-title').innerHTML = t.aboutTitle;
-      const aPs = qa('#chi-sono .about-copy p');
-      if (aPs[0]) aPs[0].innerHTML = t.aboutP1;
-      if (aPs[1]) aPs[1].innerHTML = t.aboutP2;
-      if (aPs[2]) aPs[2].innerHTML = t.aboutP3;
-      qa('#chi-sono .tag').forEach((tag, i) => { if (t.tags[i]) tag.textContent = t.tags[i]; });
+      qi('aboutLabel').textContent = t.aboutLabel;
+      qi('aboutTitle').innerHTML = t.aboutTitle;
+      qi('aboutP1').innerHTML = t.aboutP1;
+      qi('aboutP2').innerHTML = t.aboutP2;
+      qi('aboutP3').innerHTML = t.aboutP3;
+      const tagEls = qi('tagsWrap').querySelectorAll('.tag');
+      tagEls.forEach((tag, i) => { if (t.tags[i]) tag.textContent = t.tags[i]; });
 
       // Metrics
-      const ml = qa('.metric-l');
-      if (ml[0]) ml[0].textContent = t.metricScatti;
-      if (ml[1]) ml[1].textContent = t.metricFollower;
-      if (ml[2]) ml[2].textContent = t.metricConnessioni;
+      qi('ml-scatti').textContent = t.metricScatti;
+      qi('ml-follower').textContent = t.metricFollower;
+      qi('ml-connessioni').textContent = t.metricConnessioni;
 
       // Portfolio
-      q('#portfolio .s-label').textContent = t.portfolioLabel;
-      q('#portfolio .s-title').innerHTML = t.portfolioTitle;
-      q('.portfolio-head a').textContent = t.portfolioLink;
-      qa('.p-caption').forEach((c, i) => { if (t.captions[i]) c.textContent = t.captions[i]; });
+      qi('portfolioLabel').textContent = t.portfolioLabel;
+      qi('portfolioTitle').innerHTML = t.portfolioTitle;
+      qi('portfolioLink').textContent = t.portfolioLink;
+      document.querySelectorAll('.p-caption').forEach((c, i) => { if (t.captions[i]) c.textContent = t.captions[i]; });
 
       // Servizi
-      q('#servizi .s-label').textContent = t.serviziLabel;
-      q('#servizi .s-title').innerHTML = t.serviziTitle;
-      const cards = qa('.servizi-grid .s-card');
-      [[t.s1Name, t.s1Desc],[t.s2Name, t.s2Desc],[t.s3Name, t.s3Desc]].forEach(([name, desc], i) => {
-        if (cards[i]) {
-          cards[i].querySelector('.s-name').textContent = name;
-          cards[i].querySelector('.s-desc').textContent = desc;
-          cards[i].querySelector('.s-price').textContent = t.sPrice;
-        }
-      });
+      qi('serviziLabel').textContent = t.serviziLabel;
+      qi('serviziTitle').innerHTML = t.serviziTitle;
+      qi('s1Name').textContent = t.s1Name; qi('s1Desc').textContent = t.s1Desc; qi('s1Price').textContent = t.s1Price;
+      qi('s2Name').textContent = t.s2Name; qi('s2Desc').textContent = t.s2Desc; qi('s2Price').textContent = t.s2Price;
+      qi('s3Name').textContent = t.s3Name; qi('s3Desc').textContent = t.s3Desc; qi('s3Price').textContent = t.s3Price;
 
       // Contatti
-      q('#contatti .s-label').textContent = t.contattiLabel;
-      q('#contatti .s-title').innerHTML = t.contattiTitle;
-      q('.contatti-wrap p').textContent = t.contattiP;
-      const ctas = qa('.cta-row .cta');
-      if (ctas[0]) ctas[0].textContent = t.ctaEmail;
-      if (ctas[1]) ctas[1].textContent = t.ctaInstagram;
-      if (ctas[2]) ctas[2].textContent = t.ctaLinkedin;
+      qi('contattiLabel').textContent = t.contattiLabel;
+      qi('contattiTitle').innerHTML = t.contattiTitle;
+      qi('contattiP').textContent = t.contattiP;
+      qi('ctaDm').textContent = t.ctaDm;
+      qi('ctaLinkedin').textContent = t.ctaLinkedin;
 
       // Footer
-      q('.f-copy').textContent = t.footerCopy;
-      const fl = qa('.f-links a');
-      if (fl[0]) fl[0].textContent = t.fInstagram;
-      if (fl[1]) fl[1].textContent = t.fLinkedin;
-      if (fl[2]) fl[2].textContent = t.fEmail;
+      qi('footerCopy').textContent = t.footerCopy;
+      qi('fInstagram').textContent = t.fInstagram;
+      qi('fLinkedin').textContent = t.fLinkedin;
+      qi('fContact').textContent = t.fContact;
 
       // State
       document.documentElement.lang = lang;
-      document.getElementById('btn-it').classList.toggle('active', lang === 'it');
-      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
+      qi('btn-it').classList.toggle('active', lang === 'it');
+      qi('btn-es').classList.toggle('active', lang === 'es');
       localStorage.setItem('massimo-lang', lang);
     }
 
-    // Restore saved language preference
     (function() {
       const saved = localStorage.getItem('massimo-lang');
       if (saved && saved !== 'it') setLang(saved);
     })();
 
-    // Nav scroll
-    const nav = document.getElementById('nav');
+    // ── MOBILE MENU ──
+    function toggleMenu() {
+        const menu = qi('mobMenu');
+        const btn = qi('hamburger');
+        const isOpen = menu.classList.contains('open');
+        menu.classList.toggle('open', !isOpen);
+        btn.classList.toggle('open', !isOpen);
+        document.body.style.overflow = isOpen ? '' : 'hidden';
+    }
+    function closeMenu() {
+        qi('mobMenu').classList.remove('open');
+        qi('hamburger').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    // ── NAV SCROLL ──
+    const nav = qi('nav');
+    const backToTop = qi('backToTop');
     window.addEventListener('scroll', () => {
         nav.classList.toggle('scrolled', window.scrollY > 60);
+        backToTop.classList.toggle('visible', window.scrollY > 400);
     }, { passive: true });
 
-    // Hero parallax
-    const bg = document.getElementById('heroBg');
+    // ── HERO PARALLAX ──
+    const bg = qi('heroBg');
     window.addEventListener('scroll', () => {
         if (window.scrollY < window.innerHeight) {
             bg.style.transform = `scale(1.08) translateY(${window.scrollY * 0.25}px)`;
         }
     }, { passive: true });
 
-    // Reveal on scroll
+    // ── REVEAL ON SCROLL ──
     const revObs = new IntersectionObserver(entries => {
         entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
     }, { threshold: 0.1 });
     document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
 
-    // Counter animation
+    // ── COUNTER ANIMATION ──
     const cntObs = new IntersectionObserver(entries => {
         entries.forEach(e => {
             if (e.isIntersecting && !e.target.dataset.done) {
@@ -1197,19 +1386,43 @@
         })(start);
     }
 
-    // Lightbox
-    function lbOpen(src) {
-        document.getElementById('lbxImg').src = src;
-        document.getElementById('lbx').classList.add('open');
+    // ── LIGHTBOX ──
+    const lbxSrcs = [
+        'assets/post-1.jpg','assets/post-2.jpg','assets/post-3.jpg',
+        'assets/post-4.jpg','assets/post-5.jpg','assets/post-6.jpg',
+        'assets/post-7.jpg','assets/post-8.jpg','assets/post-9.jpg',
+        'assets/post-10.jpg','assets/post-11.jpg'
+    ];
+    let lbxIdx = 0;
+
+    function lbOpen(idx) {
+        lbxIdx = idx;
+        lbxRender();
+        qi('lbx').classList.add('open');
         document.body.style.overflow = 'hidden';
     }
     function lbClose() {
-        document.getElementById('lbx').classList.remove('open');
+        qi('lbx').classList.remove('open');
         document.body.style.overflow = '';
     }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); });
+    function lbPrev() {
+        lbxIdx = (lbxIdx - 1 + lbxSrcs.length) % lbxSrcs.length;
+        lbxRender();
+    }
+    function lbNext() {
+        lbxIdx = (lbxIdx + 1) % lbxSrcs.length;
+        lbxRender();
+    }
+    function lbxRender() {
+        qi('lbxImg').src = lbxSrcs[lbxIdx];
+        qi('lbxCounter').textContent = `${lbxIdx + 1} / ${lbxSrcs.length}`;
+    }
+    document.addEventListener('keydown', e => {
+        if (!qi('lbx').classList.contains('open')) return;
+        if (e.key === 'Escape') lbClose();
+        if (e.key === 'ArrowLeft') lbPrev();
+        if (e.key === 'ArrowRight') lbNext();
+    });
 </script>
 </body>
 </html>
-
-<!-- prueba 2-->
