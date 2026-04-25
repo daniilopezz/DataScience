@@ -103,6 +103,15 @@
             transition: color 0.3s;
         }
         .nav-links a:hover { color: var(--accent); }
+        .nav-links a.active { color: var(--accent); position: relative; }
+        .nav-links a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -3px; left: 0; right: 0;
+            height: 1px;
+            background: var(--accent);
+            opacity: 0.5;
+        }
 
         .nav-right { display: flex; align-items: center; gap: 1.25rem; }
 
@@ -1436,6 +1445,27 @@
         qi('lbxImg').src = lbxSrcs[lbxIdx];
         qi('lbxCounter').textContent = `${lbxIdx + 1} / ${lbxSrcs.length}`;
     }
+    // ── SCROLL SPY ──
+    (function() {
+        const spySections = [
+            { id: 'contatti',  navId: 'nl-contatti' },
+            { id: 'servizi',   navId: 'nl-servizi' },
+            { id: 'portfolio', navId: 'nl-portfolio' },
+            { id: 'chi-sono',  navId: 'nl-about' },
+        ];
+        function updateSpy() {
+            let active = null;
+            for (const s of spySections) {
+                const el = document.getElementById(s.id);
+                if (el && window.scrollY >= el.offsetTop - 140) { active = s.navId; break; }
+            }
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            if (active) qi(active).classList.add('active');
+        }
+        window.addEventListener('scroll', updateSpy, { passive: true });
+        updateSpy();
+    })();
+
     document.addEventListener('keydown', e => {
         if (!qi('lbx').classList.contains('open')) return;
         if (e.key === 'Escape') lbClose();
