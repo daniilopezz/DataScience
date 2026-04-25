@@ -1,0 +1,107 @@
+{
+  "cookies": [
+    {
+      "name": "datr",
+      "value": "krPsaboMoYGj7iPFXzZRD7SD",
+      "domain": ".instagram.com",
+      "path": "/",
+      "expires": 1811680150.705751,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ig_did",
+      "value": "B0868EF2-C757-4200-AEDD-D5A36212C23C",
+      "domain": ".instagram.com",
+      "path": "/",
+      "expires": 1808656150.70579,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "mid",
+      "value": "aeyzkgAEAAHILdGBJ8r4EbLYEPsz",
+      "domain": ".instagram.com",
+      "path": "/",
+      "expires": 1811680150.705823,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "csrftoken",
+      "value": "2V4Ict1W7BEVOvTH7183bk",
+      "domain": ".instagram.com",
+      "path": "/",
+      "expires": 1811680157.907327,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "dpr",
+      "value": "1",
+      "domain": ".instagram.com",
+      "path": "/",
+      "expires": 1777724957,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "wd",
+      "value": "1280x900",
+      "domain": ".instagram.com",
+      "path": "/",
+      "expires": 1777724957,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.instagram.com",
+      "localStorage": [
+        {
+          "name": "chatd-deviceid",
+          "value": "457e4866-7a34-4fea-9f11-50f023d2ecec"
+        },
+        {
+          "name": "hb_timestamp",
+          "value": "1777120152475"
+        },
+        {
+          "name": "IGSession",
+          "value": "tvorhy:1777121962214"
+        },
+        {
+          "name": "pigeon_state",
+          "value": "{\"lastDeviceInfoTime\":0}"
+        },
+        {
+          "name": "ig_web_boost_interstitial_nux_viewed",
+          "value": "false"
+        },
+        {
+          "name": "signal_flush_timestamp",
+          "value": "1777120152479"
+        },
+        {
+          "name": "Session",
+          "value": "pmg4de:1777120197214"
+        },
+        {
+          "name": "banzai:last_storage_flush",
+          "value": "1777120153305.2002"
+        },
+        {
+          "name": "caa_feta_onetap_users_migrated",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

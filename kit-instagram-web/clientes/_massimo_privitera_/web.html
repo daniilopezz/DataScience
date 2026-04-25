@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Massimo Privitera — Fotografo. Geometrie di luce e silenzio.">
+    <title>Massimo Privitera — Fotografo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=DM+Mono:wght@300&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #080808;
+            --surface: #101010;
+            --surface2: #1a1a1a;
+            --border: #242424;
+            --text: #f0ece4;
+            --text-muted: #787878;
+            --accent: #c9a96e;
+            --accent-light: #e2c88a;
+            --accent-dark: #9a7d4e;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--accent-dark); border-radius: 3px; }
+
+        /* ─── NAV ─── */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 200;
+            padding: 1.4rem 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.5s, border-color 0.5s;
+            border-bottom: 1px solid transparent;
+        }
+
+        nav.scrolled {
+            background: rgba(8, 8, 8, 0.88);
+            backdrop-filter: blur(24px);
+            border-color: var(--border);
+        }
+
+        .nav-logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: 0.06em;
+        }
+        .nav-logo span { color: var(--accent); }
+
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.78rem;
+            font-weight: 400;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--accent); }
+
+        /* ─── HERO ─── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 7rem 4rem 4rem;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            background: url('assets/post-6.jpg') center / cover no-repeat;
+            filter: brightness(0.12) saturate(0.2);
+            transform: scale(1.08);
+            will-change: transform;
+        }
+
+        .hero-grain {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 6rem;
+            align-items: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* ─── IG CARD ─── */
+        .ig-card {
+            background: rgba(12, 12, 12, 0.92);
+            border: 1px solid rgba(201, 169, 110, 0.18);
+            border-radius: 22px;
+            padding: 1.75rem;
+            backdrop-filter: blur(24px);
+            box-shadow: 0 0 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+
+        .ig-header { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
+
+        .ig-avatar-wrap {
+            position: relative;
+            width: 76px; height: 76px;
+            flex-shrink: 0;
+        }
+
+        .ig-ring {
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #c9a96e 0%, #f5e0a8 35%, #9a7d4e 65%, #c9a96e 100%);
+            animation: ringRotate 5s linear infinite;
+        }
+        .ig-ring::after {
+            content: '';
+            position: absolute;
+            inset: 2.5px;
+            border-radius: 50%;
+            background: #0c0c0c;
+        }
+
+        @keyframes ringRotate { to { transform: rotate(360deg); } }
+
+        .ig-avatar {
+            position: absolute;
+            inset: 2.5px;
+            width: calc(100% - 5px);
+            height: calc(100% - 5px);
+            border-radius: 50%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        .ig-info { flex: 1; min-width: 0; }
+
+        .ig-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.2;
+            margin-bottom: 0.2rem;
+        }
+
+        .ig-handle {
+            display: block;
+            color: var(--accent);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 300;
+            text-decoration: none;
+            opacity: 0.75;
+            transition: opacity 0.3s;
+            margin-bottom: 0.25rem;
+        }
+        .ig-handle:hover { opacity: 1; }
+
+        .ig-cat {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Stats */
+        .ig-stats {
+            display: flex;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 0.9rem 0;
+            margin-bottom: 1.1rem;
+        }
+        .ig-stat { flex: 1; text-align: center; }
+        .ig-stat-n {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+            display: block;
+            line-height: 1;
+        }
+        .ig-stat-l {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        /* Bio */
+        .ig-bio {
+            font-size: 0.78rem;
+            line-height: 1.65;
+            color: var(--text-muted);
+            margin-bottom: 1.1rem;
+        }
+        .ig-bio strong { color: var(--text); font-weight: 400; }
+
+        /* Buttons */
+        .ig-btns { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; }
+        .ig-btn {
+            flex: 1;
+            padding: 0.48rem 0.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 0.7rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.25s;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+        }
+        .ig-btn:hover { background: var(--surface2); border-color: rgba(201,169,110,0.4); color: var(--accent); }
+        .ig-btn.primary { background: var(--accent); border-color: var(--accent); color: #080808; font-weight: 500; }
+        .ig-btn.primary:hover { background: var(--accent-light); }
+
+        /* Mini grid */
+        .ig-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .ig-grid img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.4s, filter 0.4s;
+            filter: brightness(0.85);
+        }
+        .ig-grid img:hover { transform: scale(1.06); filter: brightness(1.05); }
+
+        /* ─── HERO TITLE ─── */
+        .hero-text { padding-left: 0.5rem; }
+
+        .hero-eyebrow {
+            font-size: 0.7rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .hero-eyebrow::before {
+            content: '';
+            display: inline-block;
+            width: 40px;
+            height: 1px;
+            background: var(--accent);
+        }
+
+        .hero-h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(3.8rem, 6.5vw, 6.5rem);
+            font-weight: 700;
+            line-height: 1.02;
+            color: var(--text);
+            margin-bottom: 2rem;
+            letter-spacing: -0.02em;
+        }
+        .hero-h1 em { font-style: italic; color: var(--accent); }
+
+        .hero-sub {
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            line-height: 1.85;
+            max-width: 360px;
+            margin-bottom: 2.5rem;
+            font-weight: 300;
+        }
+
+        .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.7rem 1.5rem;
+            border: 1px solid rgba(201,169,110,0.25);
+            border-radius: 50px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .hero-pill strong { color: var(--accent); font-size: 1.15rem; font-family: 'Playfair Display', serif; font-weight: 600; }
+
+        /* Scroll indicator */
+        .scroll-hint {
+            position: absolute;
+            bottom: 2.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.35;
+        }
+        .scroll-hint span { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--text-muted); }
+        .scroll-line { width: 1px; height: 48px; background: linear-gradient(to bottom, var(--accent), transparent); animation: scrollPulse 2.2s ease-in-out infinite; }
+        @keyframes scrollPulse { 0%,100%{transform:scaleY(0.6);opacity:0.3} 50%{transform:scaleY(1);opacity:1} }
+
+        /* ─── SECTIONS ─── */
+        section { padding: 8rem 4rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .s-label {
+            font-size: 0.66rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+        .s-label::before { content: ''; display: inline-block; width: 28px; height: 1px; background: var(--accent); }
+
+        .s-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            font-weight: 700;
+            line-height: 1.1;
+            color: var(--text);
+            margin-bottom: 1.5rem;
+        }
+        .s-title em { font-style: italic; color: var(--accent); }
+
+        /* ─── CHI SONO ─── */
+        #chi-sono { background: var(--surface); }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6rem;
+            align-items: center;
+        }
+
+        .about-img {
+            position: relative;
+        }
+        .about-img::before {
+            content: '';
+            position: absolute;
+            top: -18px; left: -18px;
+            right: 22px; bottom: 22px;
+            border: 1px solid rgba(201,169,110,0.15);
+            border-radius: 14px;
+            pointer-events: none;
+        }
+        .about-img::after {
+            content: '';
+            position: absolute;
+            bottom: -12px; right: -12px;
+            width: 60px; height: 60px;
+            border-bottom: 2px solid var(--accent);
+            border-right: 2px solid var(--accent);
+            border-radius: 0 0 8px 0;
+        }
+        .about-img img {
+            width: 100%;
+            border-radius: 12px;
+            display: block;
+            filter: grayscale(15%) contrast(1.05);
+        }
+
+        .about-copy p {
+            font-size: 0.97rem;
+            line-height: 1.92;
+            color: var(--text-muted);
+            margin-bottom: 1.4rem;
+        }
+        .about-copy p strong { color: var(--text); font-weight: 500; }
+
+        .tags { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 2rem; }
+        .tag {
+            padding: 0.38rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s;
+            cursor: default;
+        }
+        .tag:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ─── METRICS ─── */
+        #metriche {
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 5rem 4rem;
+        }
+        .metrics-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0;
+        }
+        .metric {
+            flex: 1;
+            text-align: center;
+            padding: 2rem;
+            position: relative;
+        }
+        .metric + .metric::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 20%; bottom: 20%;
+            width: 1px;
+            background: var(--border);
+        }
+        .metric-n {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            display: block;
+            line-height: 1;
+        }
+        .metric-l {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-top: 0.6rem;
+        }
+
+        /* ─── PORTFOLIO ─── */
+        #portfolio { background: var(--bg); }
+
+        .portfolio-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2.5rem;
+        }
+        .portfolio-head a {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.75rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(201,169,110,0.3);
+            padding-bottom: 2px;
+            transition: border-color 0.3s;
+        }
+        .portfolio-head a:hover { border-color: var(--accent); }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: 280px;
+            gap: 4px;
+        }
+        .p-item {
+            position: relative;
+            overflow: hidden;
+            background: var(--surface);
+            cursor: zoom-in;
+        }
+        .p-item:nth-child(1) { grid-column: span 2; grid-row: span 1; }
+        .p-item:nth-child(6) { grid-column: span 2; grid-row: span 1; }
+        .p-item:nth-child(10) { grid-column: span 2; grid-row: span 1; }
+
+        .p-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.5s;
+            filter: brightness(0.82);
+        }
+        .p-item:hover img { transform: scale(1.05); filter: brightness(1); }
+
+        .p-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 55%);
+            opacity: 0;
+            transition: opacity 0.4s;
+            display: flex;
+            align-items: flex-end;
+            padding: 1.25rem;
+        }
+        .p-item:hover .p-overlay { opacity: 1; }
+        .p-caption {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.75);
+            font-style: italic;
+            letter-spacing: 0.05em;
+        }
+
+        /* ─── SERVIZI ─── */
+        #servizi { background: var(--surface); }
+
+        .servizi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 3.5rem;
+        }
+        .s-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 2.5rem 2rem;
+            transition: border-color 0.35s, transform 0.35s;
+            position: relative;
+            overflow: hidden;
+        }
+        .s-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s;
+        }
+        .s-card:hover::after { transform: scaleX(1); }
+        .s-card:hover { border-color: rgba(201,169,110,0.25); transform: translateY(-3px); }
+
+        .s-icon { font-size: 1.8rem; margin-bottom: 1.25rem; display: block; }
+        .s-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+        .s-desc { font-size: 0.83rem; color: var(--text-muted); line-height: 1.75; margin-bottom: 1.5rem; }
+        .s-price { font-size: 0.75rem; color: var(--accent); letter-spacing: 0.05em; }
+
+        /* ─── CONTATTI ─── */
+        #contatti { background: var(--bg); }
+
+        .contatti-wrap { max-width: 660px; margin: 0 auto; text-align: center; }
+        .contatti-wrap .s-label { justify-content: center; }
+        .contatti-wrap .s-label::before { display: none; }
+        .contatti-wrap p {
+            font-size: 0.94rem;
+            color: var(--text-muted);
+            line-height: 1.85;
+            margin-bottom: 2.75rem;
+        }
+
+        .cta-row { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.9rem 2.2rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .cta.gold { background: var(--accent); color: #080808; }
+        .cta.gold:hover { background: var(--accent-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(201,169,110,0.25); }
+        .cta.outline { border: 1px solid var(--border); color: var(--text); }
+        .cta.outline:hover { border-color: rgba(201,169,110,0.4); color: var(--accent); transform: translateY(-2px); }
+
+        /* ─── FOOTER ─── */
+        footer {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 2rem 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .f-logo { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; color: var(--text); }
+        .f-logo span { color: var(--accent); }
+        .f-copy { font-size: 0.72rem; color: var(--text-muted); }
+        .f-links { display: flex; gap: 1.75rem; }
+        .f-links a { color: var(--text-muted); text-decoration: none; font-size: 0.78rem; transition: color 0.3s; }
+        .f-links a:hover { color: var(--accent); }
+
+        /* ─── LIGHTBOX ─── */
+        .lbx {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.97);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .lbx.open { display: flex; }
+        .lbx img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
+        .lbx-close {
+            position: absolute;
+            top: 1.75rem; right: 2rem;
+            background: none; border: none;
+            color: rgba(255,255,255,0.5);
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+        .lbx-close:hover { color: white; }
+
+        /* ─── ANIMATIONS ─── */
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity 0.75s ease, transform 0.75s ease;
+        }
+        .reveal.in { opacity: 1; transform: translateY(0); }
+        .d1 { transition-delay: 0.1s; }
+        .d2 { transition-delay: 0.2s; }
+        .d3 { transition-delay: 0.3s; }
+        .d4 { transition-delay: 0.4s; }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 1100px) {
+            .hero-content { grid-template-columns: 380px 1fr; gap: 4rem; }
+        }
+        @media (max-width: 900px) {
+            nav { padding: 1.1rem 2rem; }
+            .nav-links { gap: 1.5rem; }
+            section { padding: 6rem 2rem; }
+            .hero { padding: 6rem 2rem 4rem; }
+            .hero-content { grid-template-columns: 1fr; gap: 3rem; }
+            .ig-card { max-width: 400px; margin: 0 auto; }
+            .hero-text { text-align: center; }
+            .hero-eyebrow { justify-content: center; }
+            .hero-sub { margin: 0 auto 2.5rem; }
+            .about-grid { grid-template-columns: 1fr; gap: 3rem; }
+            .servizi-grid { grid-template-columns: 1fr; }
+            .portfolio-grid { grid-auto-rows: 220px; }
+            footer { flex-direction: column; gap: 1rem; text-align: center; }
+        }
+        @media (max-width: 640px) {
+            nav { padding: 1rem 1.5rem; }
+            .nav-links { display: none; }
+            section { padding: 5rem 1.5rem; }
+            .hero { padding: 5rem 1.5rem 4rem; }
+            .portfolio-grid { grid-template-columns: 1fr 1fr; grid-auto-rows: 180px; }
+            .p-item:nth-child(1),.p-item:nth-child(6),.p-item:nth-child(10) { grid-column: span 1; }
+            .metrics-row { flex-wrap: wrap; }
+            .metric { min-width: 45%; }
+            .metric + .metric::before { display: none; }
+            footer { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+    <a href="#" class="nav-logo">M<span>.</span>P</a>
+    <ul class="nav-links">
+        <li><a href="#chi-sono">Chi Sono</a></li>
+        <li><a href="#portfolio">Portfolio</a></li>
+        <li><a href="#servizi">Servizi</a></li>
+        <li><a href="#contatti">Contatti</a></li>
+    </ul>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero" id="home">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-grain"></div>
+
+    <div class="hero-content">
+
+        <!-- Instagram Card -->
+        <div class="ig-card">
+            <div class="ig-header">
+                <div class="ig-avatar-wrap">
+                    <div class="ig-ring"></div>
+                    <img class="ig-avatar" src="assets/profile.jpg" alt="Massimo Privitera">
+                </div>
+                <div class="ig-info">
+                    <div class="ig-name">Massimo Privitera</div>
+                    <a class="ig-handle" href="https://www.instagram.com/_massimo_privitera_/" target="_blank">@_massimo_privitera_</a>
+                    <div class="ig-cat">📷 Fotografo · Agente Assicurativo</div>
+                </div>
+            </div>
+
+            <div class="ig-stats">
+                <div class="ig-stat">
+                    <span class="ig-stat-n">2.371</span>
+                    <div class="ig-stat-l">Post</div>
+                </div>
+                <div class="ig-stat">
+                    <span class="ig-stat-n">808</span>
+                    <div class="ig-stat-l">Follower</div>
+                </div>
+                <div class="ig-stat">
+                    <span class="ig-stat-n">1.226</span>
+                    <div class="ig-stat-l">Seguiti</div>
+                </div>
+            </div>
+
+            <div class="ig-bio">
+                Fotografo con la passione per le strade, le geometrie e la luce.<br>
+                Agente Assicurativo · <strong>Unipol Assicurazioni SpA</strong>
+            </div>
+
+            <div class="ig-btns">
+                <a href="mailto:lopezaguirrecoc@gmail.com" class="ig-btn primary">Contatta</a>
+                <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" class="ig-btn">Instagram</a>
+                <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" class="ig-btn">LinkedIn</a>
+            </div>
+
+            <div class="ig-grid">
+                <img src="assets/post-1.jpg" alt="">
+                <img src="assets/post-2.jpg" alt="">
+                <img src="assets/post-3.jpg" alt="">
+                <img src="assets/post-4.jpg" alt="">
+                <img src="assets/post-5.jpg" alt="">
+                <img src="assets/post-6.jpg" alt="">
+            </div>
+        </div>
+
+        <!-- Title -->
+        <div class="hero-text">
+            <div class="hero-eyebrow">Fotografo — Italia</div>
+            <h1 class="hero-h1">
+                Geometrie<br>
+                di <em>luce</em><br>
+                e silenzio
+            </h1>
+            <p class="hero-sub">
+                Ogni scatto è un istante cristallizzato. Strade, architetture e paesaggi raccontati attraverso un obiettivo sensibile alla bellezza nascosta nel quotidiano.
+            </p>
+            <div class="hero-pill">
+                <strong>808</strong>
+                <span>persone seguono questa storia</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="scroll-hint">
+        <span>Scorri</span>
+        <div class="scroll-line"></div>
+    </div>
+</section>
+
+<!-- ── CHI SONO ── -->
+<section id="chi-sono">
+    <div class="container">
+        <div class="about-grid">
+            <div class="about-img reveal">
+                <img src="assets/post-7.jpg" alt="Massimo Privitera — scatto fotografico">
+            </div>
+            <div class="about-copy">
+                <div class="s-label reveal">Chi Sono</div>
+                <h2 class="s-title reveal d1">L'uomo<br>dietro<br><em>l'obiettivo</em></h2>
+                <p class="reveal d2">
+                    Mi chiamo <strong>Massimo Privitera</strong>. Fotografo con una passione viscerale per le strade, le architetture e i paesaggi urbani. Con oltre <strong>2.371 scatti pubblicati</strong>, ogni fotografia è il racconto silenzioso di un istante che non ritorna.
+                </p>
+                <p class="reveal d3">
+                    Il mio sguardo si muove tra il bianco e nero più essenziale e la malinconia dei paesaggi costieri italiani. Geometrie, luci radenti, ombre lunghe: trovo bellezza nell'ordinario, nella strada di ogni giorno, in ciò che molti guardano senza davvero vedere.
+                </p>
+                <p class="reveal d3">
+                    Professionalmente sono anche <strong>Agente Assicurativo</strong> presso <strong>Unipol Assicurazioni SpA</strong> — due mondi uniti dallo stesso rigore e dalla stessa attenzione al dettaglio.
+                </p>
+                <div class="tags reveal d4">
+                    <span class="tag">Street Photography</span>
+                    <span class="tag">Bianco &amp; Nero</span>
+                    <span class="tag">Architettura</span>
+                    <span class="tag">Paesaggio Urbano</span>
+                    <span class="tag">Costa &amp; Mare</span>
+                    <span class="tag">Ritratto</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── METRICHE ── -->
+<section id="metriche">
+    <div class="container">
+        <div class="metrics-row">
+            <div class="metric reveal">
+                <span class="metric-n" data-target="2371">0</span>
+                <div class="metric-l">Scatti pubblicati</div>
+            </div>
+            <div class="metric reveal d1">
+                <span class="metric-n" data-target="808">0</span>
+                <div class="metric-l">Follower su Instagram</div>
+            </div>
+            <div class="metric reveal d2">
+                <span class="metric-n" data-target="1226">0</span>
+                <div class="metric-l">Connessioni</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── PORTFOLIO ── -->
+<section id="portfolio">
+    <div class="container">
+        <div class="portfolio-head">
+            <div>
+                <div class="s-label reveal">Portfolio</div>
+                <h2 class="s-title reveal d1">Gli scatti<br>più recenti</h2>
+            </div>
+            <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank">Vedi su Instagram →</a>
+        </div>
+
+        <div class="portfolio-grid reveal">
+            <div class="p-item">
+                <img src="assets/post-1.jpg" alt="Geometrie urbane" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Geometrie urbane · Aprile 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-2.jpg" alt="La strada" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">La strada · Aprile 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-3.jpg" alt="Texture" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Texture · Aprile 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-4.jpg" alt="Lungomare" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Lungomare · Marzo 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-5.jpg" alt="Crepuscolo" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Crepuscolo · Marzo 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-6.jpg" alt="Nebbia" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Nebbia · Marzo 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-7.jpg" alt="Strade" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Strade · Febbraio 2026</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-8.jpg" alt="Inverno" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Inverno · Dicembre 2025</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-9.jpg" alt="Paesaggio" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Paesaggio · Dicembre 2025</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-10.jpg" alt="Luce" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Luce · Dicembre 2025</span></div>
+            </div>
+            <div class="p-item">
+                <img src="assets/post-11.jpg" alt="Ombre" onclick="lbOpen(this.src)">
+                <div class="p-overlay"><span class="p-caption">Ombre · Dicembre 2025</span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── SERVIZI ── -->
+<section id="servizi">
+    <div class="container">
+        <div class="s-label reveal">Servizi</div>
+        <h2 class="s-title reveal d1">Cosa posso<br>fare per te</h2>
+
+        <div class="servizi-grid">
+            <div class="s-card reveal">
+                <span class="s-icon">🏙️</span>
+                <div class="s-name">Fotografia Urbana</div>
+                <p class="s-desc">Strade, architetture e angoli nascosti delle città. Ogni scatto racconta l'anima di un luogo con uno sguardo unico e irripetibile.</p>
+                <div class="s-price">Contattami per il preventivo</div>
+            </div>
+            <div class="s-card reveal d1">
+                <span class="s-icon">🌊</span>
+                <div class="s-name">Paesaggi &amp; Natura</div>
+                <p class="s-desc">Dal mare al cielo, dalla nebbia all'alba. La bellezza del paesaggio italiano attraverso un occhio attento alla luce e all'atmosfera.</p>
+                <div class="s-price">Contattami per il preventivo</div>
+            </div>
+            <div class="s-card reveal d2">
+                <span class="s-icon">👤</span>
+                <div class="s-name">Ritratti</div>
+                <p class="s-desc">Sessioni fotografiche individuali con uno stile autentico, ricercato ed essenziale. Catturiamo la tua vera essenza senza filtri.</p>
+                <div class="s-price">Contattami per il preventivo</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── CONTATTI ── -->
+<section id="contatti">
+    <div class="container">
+        <div class="contatti-wrap">
+            <div class="s-label reveal">Contatti</div>
+            <h2 class="s-title reveal d1">Parliamo del<br>tuo <em>progetto</em></h2>
+            <p class="reveal d2">
+                Hai un'idea, un servizio fotografico da realizzare o vuoi semplicemente un preventivo? Scrivimi — rispondo sempre con piacere.
+            </p>
+            <div class="cta-row reveal d3">
+                <a href="mailto:lopezaguirrecoc@gmail.com" class="cta gold">✉ Invia un'email</a>
+                <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank" class="cta outline">📷 Instagram</a>
+                <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank" class="cta outline">💼 LinkedIn</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="f-logo">M<span>.</span>P</div>
+    <div class="f-copy">© 2026 Massimo Privitera · Tutti i diritti riservati</div>
+    <div class="f-links">
+        <a href="https://www.instagram.com/_massimo_privitera_/" target="_blank">Instagram</a>
+        <a href="https://www.linkedin.com/in/massimo-privitera-7a1a0039" target="_blank">LinkedIn</a>
+        <a href="mailto:lopezaguirrecoc@gmail.com">Email</a>
+    </div>
+</footer>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lbx" id="lbx" onclick="lbClose()">
+    <button class="lbx-close" onclick="lbClose()">✕</button>
+    <img id="lbxImg" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
+<script>
+    // Nav scroll
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+        nav.classList.toggle('scrolled', window.scrollY > 60);
+    }, { passive: true });
+
+    // Hero parallax
+    const bg = document.getElementById('heroBg');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY < window.innerHeight) {
+            bg.style.transform = `scale(1.08) translateY(${window.scrollY * 0.25}px)`;
+        }
+    }, { passive: true });
+
+    // Reveal on scroll
+    const revObs = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
+
+    // Counter animation
+    const cntObs = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            if (e.isIntersecting && !e.target.dataset.done) {
+                e.target.dataset.done = '1';
+                animateCount(e.target, +e.target.dataset.target);
+            }
+        });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('[data-target]').forEach(el => cntObs.observe(el));
+
+    function animateCount(el, target) {
+        const dur = 2000, start = performance.now();
+        (function tick(now) {
+            const p = Math.min((now - start) / dur, 1);
+            const v = Math.round((1 - Math.pow(1 - p, 3)) * target);
+            el.textContent = v.toLocaleString('it-IT');
+            if (p < 1) requestAnimationFrame(tick);
+        })(start);
+    }
+
+    // Lightbox
+    function lbOpen(src) {
+        document.getElementById('lbxImg').src = src;
+        document.getElementById('lbx').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function lbClose() {
+        document.getElementById('lbx').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); });
+</script>
+</body>
+</html>

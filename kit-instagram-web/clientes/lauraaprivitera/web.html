@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Laura Privitera — Studentessa di Fashion Design, viaggiatrice e appassionata di moda.">
+    <title>Laura Privitera — lau</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&family=DM+Mono:wght@300&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg:       #faf7f3;
+            --bg2:      #f5ede2;
+            --bg3:      #edddd0;
+            --border:   #e8ddd3;
+            --text:     #2a2320;
+            --muted:    #9a8070;
+            --accent:   #c4845a;
+            --accent-l: #d9a07e;
+            --rose:     #c47a8a;
+            --rose-l:   #d9a0ae;
+            --cream:    #fdf9f5;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--rose); border-radius: 3px; }
+
+        /* ─── NAV ─── */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 200;
+            padding: 1.3rem 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.5s, border-color 0.5s;
+            border-bottom: 1px solid transparent;
+        }
+        nav.scrolled {
+            background: rgba(250, 247, 243, 0.92);
+            backdrop-filter: blur(20px);
+            border-color: var(--border);
+        }
+        .nav-logo {
+            font-family: 'Cormorant Garant', serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: 0.04em;
+        }
+        .nav-logo span { color: var(--rose); }
+
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.77rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--rose); }
+
+        /* ─── HERO ─── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 7rem 4rem 4rem;
+            background: linear-gradient(135deg, var(--cream) 0%, #f9eee6 40%, #f7e8f0 100%);
+        }
+
+        /* Decorative blobs */
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.35;
+            pointer-events: none;
+        }
+        .blob-1 { width: 500px; height: 500px; background: #f5c5a3; top: -100px; right: -100px; }
+        .blob-2 { width: 400px; height: 400px; background: #e8b4c4; bottom: -80px; left: -80px; }
+        .blob-3 { width: 300px; height: 300px; background: #f7e0a8; top: 50%; left: 40%; transform: translate(-50%,-50%); }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 390px 1fr;
+            gap: 6rem;
+            align-items: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* ─── IG CARD ─── */
+        .ig-card {
+            background: rgba(255, 252, 248, 0.88);
+            border: 1px solid rgba(196, 132, 90, 0.2);
+            border-radius: 24px;
+            padding: 1.75rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 60px rgba(180, 100, 80, 0.1), 0 2px 0 rgba(255,255,255,0.8) inset;
+        }
+
+        .ig-head { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
+
+        .ig-av-wrap { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
+        .ig-ring {
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #e8a87c 0%, #f5c4ae 30%, #d4899a 60%, #e8b4c4 80%, #e8a87c 100%);
+            animation: spin 5s linear infinite;
+        }
+        .ig-ring::after {
+            content: '';
+            position: absolute; inset: 2.5px;
+            border-radius: 50%;
+            background: #fdf8f4;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .ig-av {
+            position: absolute;
+            inset: 2.5px;
+            width: calc(100% - 5px);
+            height: calc(100% - 5px);
+            border-radius: 50%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        .ig-info { flex: 1; }
+        .ig-name {
+            font-family: 'Cormorant Garant', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.2rem;
+        }
+        .ig-handle {
+            display: block;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--rose);
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+            margin-bottom: 0.25rem;
+        }
+        .ig-handle:hover { opacity: 1; }
+        .ig-cat { font-size: 0.7rem; color: var(--muted); }
+
+        /* Stats */
+        .ig-stats {
+            display: flex;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 0.85rem 0;
+            margin-bottom: 1.1rem;
+        }
+        .ig-stat { flex: 1; text-align: center; }
+        .ig-stat-n {
+            font-family: 'Cormorant Garant', serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text);
+            display: block;
+            line-height: 1;
+        }
+        .ig-stat-l {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            margin-top: 0.2rem;
+        }
+
+        .ig-bio { font-size: 0.78rem; line-height: 1.65; color: var(--muted); margin-bottom: 1.1rem; }
+        .ig-bio strong { color: var(--text); font-weight: 400; }
+
+        /* Buttons */
+        .ig-btns { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; }
+        .ig-btn {
+            flex: 1;
+            padding: 0.5rem 0.4rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 0.7rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.25s;
+            text-decoration: none;
+            text-align: center;
+        }
+        .ig-btn:hover { background: var(--bg2); border-color: var(--rose); color: var(--rose); }
+        .ig-btn.primary { background: var(--rose); border-color: var(--rose); color: white; font-weight: 500; }
+        .ig-btn.primary:hover { background: var(--rose-l); }
+        .ig-btn.tiktok { background: #1a1a2e; border-color: #1a1a2e; color: white; font-weight: 400; }
+        .ig-btn.tiktok:hover { background: #2d2d4a; }
+
+        /* Mini grid */
+        .ig-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .ig-grid img {
+            width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+            transition: transform 0.4s, filter 0.4s;
+            filter: brightness(0.92) saturate(1.05);
+        }
+        .ig-grid img:hover { transform: scale(1.08); filter: brightness(1.05) saturate(1.1); }
+
+        /* ─── HERO TEXT ─── */
+        .hero-text { }
+
+        .hero-eyebrow {
+            font-size: 0.7rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--rose);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .hero-eyebrow::before {
+            content: '';
+            width: 32px; height: 1px;
+            background: var(--rose);
+            display: inline-block;
+        }
+
+        .hero-h1 {
+            font-family: 'Cormorant Garant', serif;
+            font-size: clamp(4rem, 7vw, 7rem);
+            font-weight: 600;
+            line-height: 0.95;
+            color: var(--text);
+            margin-bottom: 1.75rem;
+            letter-spacing: -0.02em;
+        }
+        .hero-h1 em { font-style: italic; color: var(--rose); }
+
+        .hero-sub {
+            font-size: 0.95rem;
+            color: var(--muted);
+            line-height: 1.85;
+            max-width: 370px;
+            margin-bottom: 2.25rem;
+        }
+
+        .hero-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2rem; }
+        .hero-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.72rem;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            background: rgba(255,255,255,0.6);
+        }
+        .hero-badge.hot {
+            background: linear-gradient(135deg, #f5c4ae, #e8b4c4);
+            border-color: transparent;
+            color: #7a3040;
+            font-weight: 500;
+        }
+
+        .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.7rem 1.5rem;
+            background: rgba(255,255,255,0.7);
+            border: 1px solid rgba(196, 132, 90, 0.2);
+            border-radius: 50px;
+            font-size: 0.78rem;
+            color: var(--muted);
+            backdrop-filter: blur(10px);
+        }
+        .hero-pill strong { color: var(--accent); font-size: 1.1rem; font-family: 'Cormorant Garant', serif; font-weight: 700; }
+
+        /* Scroll hint */
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+            opacity: 0.3;
+        }
+        .scroll-hint span { font-size: 0.55rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); }
+        .scroll-line { width: 1px; height: 44px; background: linear-gradient(to bottom, var(--rose), transparent); animation: scrl 2.2s ease-in-out infinite; }
+        @keyframes scrl { 0%,100%{opacity:0.3;transform:scaleY(0.7)} 50%{opacity:1;transform:scaleY(1)} }
+
+        /* ─── SECTIONS ─── */
+        section { padding: 8rem 4rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .s-label {
+            font-size: 0.65rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--rose);
+            margin-bottom: 0.85rem;
+            display: flex; align-items: center; gap: 0.65rem;
+        }
+        .s-label::before { content: ''; width: 26px; height: 1px; background: var(--rose); display: inline-block; }
+
+        .s-title {
+            font-family: 'Cormorant Garant', serif;
+            font-size: clamp(2.2rem, 4vw, 3.4rem);
+            font-weight: 600;
+            line-height: 1.1;
+            color: var(--text);
+            margin-bottom: 1.5rem;
+        }
+        .s-title em { font-style: italic; color: var(--rose); }
+
+        /* ─── CHI SONO ─── */
+        #chi-sono { background: white; }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6rem;
+            align-items: center;
+        }
+
+        .about-img-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 8px;
+        }
+        .about-img-grid .big { grid-row: span 2; }
+        .about-img-grid img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            display: block;
+            min-height: 200px;
+            filter: saturate(1.05);
+        }
+
+        .about-copy p {
+            font-size: 0.97rem; line-height: 1.9;
+            color: var(--muted); margin-bottom: 1.4rem;
+        }
+        .about-copy p strong { color: var(--text); font-weight: 500; }
+
+        .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1.75rem; }
+        .tag {
+            padding: 0.38rem 0.9rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            color: var(--muted);
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+            cursor: default;
+        }
+        .tag:hover { background: #f5e0e8; border-color: var(--rose-l); color: var(--rose); }
+
+        /* ─── GALLERY ─── */
+        #gallery { background: var(--bg); }
+
+        .gallery-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2.5rem; }
+        .gallery-head a {
+            color: var(--rose); text-decoration: none;
+            font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase;
+            border-bottom: 1px solid rgba(196,122,138,0.3); padding-bottom: 2px;
+            transition: border-color 0.3s;
+        }
+        .gallery-head a:hover { border-color: var(--rose); }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .g-item { position: relative; overflow: hidden; border-radius: 10px; cursor: zoom-in; background: var(--bg2); }
+        .g-item:nth-child(1) { grid-column: span 2; }
+        .g-item:nth-child(4) { grid-column: span 2; }
+
+        .g-item img {
+            width: 100%; height: 320px; object-fit: cover; display: block;
+            transition: transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.5s;
+            filter: brightness(0.93) saturate(1.05);
+        }
+        .g-item:nth-child(1) img, .g-item:nth-child(4) img { height: 360px; }
+        .g-item:hover img { transform: scale(1.04); filter: brightness(1.02) saturate(1.1); }
+
+        .g-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(42,35,32,0.55) 0%, transparent 55%);
+            opacity: 0; transition: opacity 0.4s;
+            display: flex; align-items: flex-end; padding: 1.25rem;
+        }
+        .g-item:hover .g-overlay { opacity: 1; }
+        .g-caption { font-size: 0.72rem; color: rgba(255,255,255,0.85); font-style: italic; }
+
+        /* ─── PASSIONI ─── */
+        #passioni {
+            background: linear-gradient(135deg, #fdf0f5 0%, #fdf8f0 100%);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .passioni-intro { max-width: 600px; margin-bottom: 4rem; }
+
+        .passioni-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.4fr;
+            gap: 1.5rem;
+        }
+
+        .passione-card {
+            border-radius: 20px;
+            padding: 2.25rem 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.35s;
+        }
+        .passione-card:hover { transform: translateY(-4px); }
+
+        .passione-card.bieber {
+            background: linear-gradient(135deg, #fff9e6, #ffefd0);
+            border: 1px solid #f5d8a0;
+        }
+        .passione-card.onedirection {
+            background: linear-gradient(135deg, #f0f4ff, #e6eeff);
+            border: 1px solid #b8c8f5;
+        }
+        .passione-card.louis {
+            background: linear-gradient(135deg, #fff0f5, #fde6ee);
+            border: 1px solid #f0b0c8;
+        }
+
+        .passione-emoji { font-size: 2.5rem; display: block; margin-bottom: 1rem; }
+
+        .passione-title {
+            font-family: 'Cormorant Garant', serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.3rem;
+        }
+        .passione-sub {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+        .passione-desc { font-size: 0.85rem; line-height: 1.75; color: var(--muted); }
+
+        .passione-card.louis .passione-desc { font-size: 0.9rem; }
+
+        .heart-badge {
+            position: absolute;
+            top: 1.25rem; right: 1.25rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.3rem 0.75rem;
+            border-radius: 50px;
+            background: var(--rose);
+            color: white;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .quote-strip {
+            margin-top: 3rem;
+            padding: 1.75rem 2rem;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .quote-mark { font-family: 'Cormorant Garant', serif; font-size: 4rem; color: var(--rose-l); line-height: 1; flex-shrink: 0; margin-top: -0.5rem; }
+        .quote-text { font-family: 'Cormorant Garant', serif; font-size: 1.3rem; font-style: italic; color: var(--text); line-height: 1.5; }
+        .quote-attr { font-size: 0.72rem; color: var(--muted); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+        /* ─── DOVE TROVARMI ─── */
+        #social { background: white; }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        .social-card {
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1.75rem;
+            text-decoration: none;
+            transition: all 0.3s;
+            background: var(--bg);
+        }
+        .social-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.07); }
+        .social-card.ig:hover { border-color: rgba(196,132,90,0.4); }
+        .social-card.tt:hover { border-color: rgba(100,100,200,0.3); }
+
+        .social-icon { font-size: 2.5rem; flex-shrink: 0; }
+        .social-info { }
+        .social-platform { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 0.3rem; }
+        .social-handle { font-family: 'Cormorant Garant', serif; font-size: 1.4rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem; }
+        .social-count { font-size: 0.78rem; color: var(--muted); }
+        .social-arrow { margin-left: auto; color: var(--muted); font-size: 1.2rem; transition: transform 0.3s; }
+        .social-card:hover .social-arrow { transform: translateX(4px); color: var(--rose); }
+
+        /* ─── FOOTER ─── */
+        footer {
+            background: var(--text);
+            color: rgba(255,255,255,0.6);
+            padding: 2rem 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .f-logo { font-family: 'Cormorant Garant', serif; font-size: 1.3rem; font-weight: 600; color: white; }
+        .f-logo span { color: var(--rose-l); }
+        .f-copy { font-size: 0.72rem; }
+        .f-links { display: flex; gap: 1.75rem; }
+        .f-links a { color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.78rem; transition: color 0.3s; }
+        .f-links a:hover { color: var(--rose-l); }
+
+        /* ─── LIGHTBOX ─── */
+        .lbx { position: fixed; inset: 0; background: rgba(10,6,4,0.96); z-index: 1000; display: none; align-items: center; justify-content: center; }
+        .lbx.open { display: flex; }
+        .lbx img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+        .lbx-close { position: absolute; top: 1.75rem; right: 2rem; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.8rem; cursor: pointer; transition: color 0.2s; }
+        .lbx-close:hover { color: white; }
+
+        /* ─── ANIMATIONS ─── */
+        .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+        .reveal.in { opacity: 1; transform: translateY(0); }
+        .d1 { transition-delay: 0.1s; } .d2 { transition-delay: 0.2s; }
+        .d3 { transition-delay: 0.3s; } .d4 { transition-delay: 0.4s; }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 1000px) {
+            .hero-content { grid-template-columns: 1fr; gap: 3rem; }
+            .ig-card { max-width: 400px; margin: 0 auto; }
+            .hero-text { text-align: center; }
+            .hero-eyebrow { justify-content: center; }
+            .hero-badges { justify-content: center; }
+            .hero-sub { margin: 0 auto 2rem; }
+            .hero-pill { margin: 0 auto; }
+            .about-grid { grid-template-columns: 1fr; gap: 3rem; }
+            .passioni-grid { grid-template-columns: 1fr; }
+            .social-grid { grid-template-columns: 1fr; }
+            #accademia .container > div { grid-template-columns: 1fr !important; gap: 2.5rem !important; }
+        }
+        @media (max-width: 768px) {
+            nav { padding: 1rem 1.5rem; }
+            .nav-links { display: none; }
+            section { padding: 5rem 1.5rem; }
+            .hero { padding: 5rem 1.5rem 4rem; }
+            .gallery-grid { grid-template-columns: 1fr 1fr; }
+            .g-item:nth-child(1), .g-item:nth-child(4) { grid-column: span 1; }
+            footer { flex-direction: column; gap: 1rem; text-align: center; padding: 1.75rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+    <a href="#" class="nav-logo">lau<span>.</span></a>
+    <ul class="nav-links">
+        <li><a href="#chi-sono">Chi Sono</a></li>
+        <li><a href="#gallery">Galleria</a></li>
+        <li><a href="#passioni">Passioni</a></li>
+        <li><a href="#accademia">Accademia</a></li>
+        <li><a href="#social">Social</a></li>
+    </ul>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero" id="home">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="hero-content">
+
+        <!-- Instagram Card -->
+        <div class="ig-card">
+            <div class="ig-head">
+                <div class="ig-av-wrap">
+                    <div class="ig-ring"></div>
+                    <img class="ig-av" src="assets/profile.jpg" alt="Laura Privitera">
+                </div>
+                <div class="ig-info">
+                    <div class="ig-name">Laura Privitera</div>
+                    <a class="ig-handle" href="https://www.instagram.com/lauraaprivitera/" target="_blank">@lauraaprivitera</a>
+                    <div class="ig-cat">🎓 Fashion Design · ✈️ Viaggiatrice</div>
+                </div>
+            </div>
+
+            <div class="ig-stats">
+                <div class="ig-stat">
+                    <span class="ig-stat-n">9</span>
+                    <div class="ig-stat-l">Post</div>
+                </div>
+                <div class="ig-stat">
+                    <span class="ig-stat-n">809</span>
+                    <div class="ig-stat-l">Follower</div>
+                </div>
+                <div class="ig-stat">
+                    <span class="ig-stat-n">🎵</span>
+                    <div class="ig-stat-l">TikTok</div>
+                </div>
+            </div>
+
+            <div class="ig-bio">
+                Studentessa di <strong>Fashion Design</strong> · ABACT Catania 🎓<br>
+                Viaggiatrice, amante della moda e di tutto ciò che è bello.<br>
+                One Direction &amp; Louis Tomlinson 🎵
+            </div>
+
+            <div class="ig-btns">
+                <a href="https://www.instagram.com/lauraaprivitera/" target="_blank" class="ig-btn primary">Instagram</a>
+                <a href="https://www.tiktok.com/@laurapriviteraa" target="_blank" class="ig-btn tiktok">TikTok</a>
+            </div>
+
+            <div class="ig-grid">
+                <img src="assets/post-1.jpg" alt="">
+                <img src="assets/post-2.jpg" alt="">
+                <img src="assets/post-3.jpg" alt="">
+                <img src="assets/post-4.jpg" alt="">
+                <img src="assets/post-5.jpg" alt="">
+                <img src="assets/post-6.jpg" alt="">
+            </div>
+        </div>
+
+        <!-- Title -->
+        <div class="hero-text">
+            <div class="hero-eyebrow">Ciao, sono Lau</div>
+            <h1 class="hero-h1">
+                Moda,<br>viaggi<br>e <em>stile</em>
+            </h1>
+            <p class="hero-sub">
+                Studentessa di Fashion Design ad ABACT Catania, con la valigia sempre pronta e One Direction nelle cuffiette. Ogni giorno è un outfit, ogni viaggio è una storia.
+            </p>
+            <div class="hero-badges">
+                <span class="hero-badge">🇮🇹 Catania</span>
+                <span class="hero-badge hot">🎓 Fashion Design</span>
+                <span class="hero-badge">✈️ Viaggiatrice</span>
+                <span class="hero-badge">🎵 Directioner</span>
+                <span class="hero-badge">👗 ABACT</span>
+            </div>
+            <div class="hero-pill">
+                <strong>809</strong>
+                <span>persone seguono questa storia</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="scroll-hint">
+        <span>Scorri</span>
+        <div class="scroll-line"></div>
+    </div>
+</section>
+
+<!-- ── CHI SONO ── -->
+<section id="chi-sono">
+    <div class="container">
+        <div class="about-grid">
+            <div class="about-img-grid reveal">
+                <img class="big" src="assets/post-3.jpg" alt="Laura al tramonto">
+                <img src="assets/post-5.jpg" alt="Laura a Siviglia">
+                <img src="assets/post-6.jpg" alt="Laura">
+            </div>
+            <div class="about-copy">
+                <div class="s-label reveal">Chi Sono</div>
+                <h2 class="s-title reveal d1">Fashion Design<br>e <em>passione vera</em></h2>
+                <p class="reveal d2">
+                    Mi chiamo <strong>Laura</strong>, ma tutti mi chiamano <strong>Lau</strong>. Sono una studentessa di Fashion Design all'<strong>ABACT</strong> — Accademia di Belle Arti di Catania — e la moda non è solo quello che studio: è il modo in cui vedo il mondo.
+                </p>
+                <p class="reveal d3">
+                    Il mio Instagram è la mia finestra sul mondo: outfit del giorno, tramonti sul mare, piazze di Siviglia e angoli nascosti d'Italia. Ogni foto racconta un momento che non volevo lasciarsi scappare.
+                </p>
+                <p class="reveal d3">
+                    Cresciuta con <strong>Justin Bieber</strong> nelle cuffie e <strong>One Direction</strong> nel cuore — la musica è sempre stata la colonna sonora di ogni giornata.
+                </p>
+                <div class="tags reveal d4">
+                    <span class="tag">Fashion Design</span>
+                    <span class="tag">ABACT Catania</span>
+                    <span class="tag">Viaggi</span>
+                    <span class="tag">Street Style</span>
+                    <span class="tag">Italia</span>
+                    <span class="tag">Spagna</span>
+                    <span class="tag">Fotografia</span>
+                    <span class="tag">One Direction</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── GALLERY ── -->
+<section id="gallery">
+    <div class="container">
+        <div class="gallery-head">
+            <div>
+                <div class="s-label reveal">Galleria</div>
+                <h2 class="s-title reveal d1">I miei<br>scatti preferiti</h2>
+            </div>
+            <a href="https://www.instagram.com/lauraaprivitera/" target="_blank">Vedi su Instagram →</a>
+        </div>
+
+        <div class="gallery-grid reveal">
+            <div class="g-item">
+                <img src="assets/post-1.jpg" alt="Siviglia — aprile 2026" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Siviglia · Aprile 2026</span></div>
+            </div>
+            <div class="g-item">
+                <img src="assets/post-2.jpg" alt="Natura" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Settembre 2025</span></div>
+            </div>
+            <div class="g-item">
+                <img src="assets/post-3.jpg" alt="Tramonto sul mare" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Tramonto · Settembre 2025</span></div>
+            </div>
+            <div class="g-item">
+                <img src="assets/post-4.jpg" alt="Outfit" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Settembre 2024</span></div>
+            </div>
+            <div class="g-item">
+                <img src="assets/post-5.jpg" alt="Plaza de España" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Plaza de España · Siviglia</span></div>
+            </div>
+            <div class="g-item">
+                <img src="assets/post-6.jpg" alt="Estate" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Estate 2024</span></div>
+            </div>
+            <div class="g-item">
+                <img src="assets/post-7.jpg" alt="Inverno" onclick="lb(this.src)">
+                <div class="g-overlay"><span class="g-caption">Febbraio 2024</span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── PASSIONI ── -->
+<section id="passioni">
+    <div class="container">
+        <div class="passioni-intro">
+            <div class="s-label reveal">Le mie passioni</div>
+            <h2 class="s-title reveal d1">Moda, musica<br>e <em>vita vera</em></h2>
+            <p class="reveal d2" style="font-size:.95rem;color:var(--muted);line-height:1.85;">
+                Oltre i libri di Fashion Design ci sono i viaggi, la musica e quei momenti che finiscono su Instagram perché meritano di essere ricordati.
+            </p>
+        </div>
+
+        <div class="passioni-grid">
+            <!-- Moda -->
+            <div class="passione-card bieber reveal">
+                <span class="passione-emoji">👗</span>
+                <div class="passione-title">Fashion Design</div>
+                <div class="passione-sub">ABACT Catania · Il mio percorso</div>
+                <p class="passione-desc">
+                    Studio Fashion Design all'Accademia di Belle Arti di Catania. La moda non è solo estetica — è racconto, identità, cultura. Lo studio ogni giorno.
+                </p>
+            </div>
+
+            <!-- One Direction -->
+            <div class="passione-card onedirection reveal d1">
+                <span class="passione-emoji">🎵</span>
+                <div class="passione-title">One Direction</div>
+                <div class="passione-sub">La band della mia vita</div>
+                <p class="passione-desc">
+                    Cinque ragazzi, milioni di cuori spezzati. Da "What Makes You Beautiful" in poi non sono più stata la stessa. Directioner per sempre, nessuna eccezione.
+                </p>
+            </div>
+
+            <!-- Louis Tomlinson -->
+            <div class="passione-card louis reveal d2">
+                <div class="heart-badge">Il mio preferito 💙</div>
+                <span class="passione-emoji">🎤</span>
+                <div class="passione-title">Louis Tomlinson</div>
+                <div class="passione-sub">Il componente preferito · Artista Solista</div>
+                <p class="passione-desc">
+                    La mia voce preferita di One Direction, poi anche da solista. <em>Walls</em>, <em>Faith in the Future</em>… la sua musica ha un'autenticità rara.
+                    <br><br>
+                    Che dire — è semplicemente il migliore.
+                </p>
+            </div>
+        </div>
+
+        <!-- Quote -->
+        <div class="quote-strip reveal">
+            <div class="quote-mark">"</div>
+            <div>
+                <div class="quote-text">We are who we are when no one's watching.</div>
+                <div class="quote-attr">— Louis Tomlinson</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── ACCADEMIA ── -->
+<section id="accademia" style="background: linear-gradient(135deg, #f5ede2 0%, #fdf0f5 100%); border-top: 1px solid var(--border);">
+    <div class="container">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center;">
+            <div>
+                <div class="s-label reveal">Dove Studio</div>
+                <h2 class="s-title reveal d1">ABACT —<br><em>Accademia</em><br>di Belle Arti</h2>
+                <p class="reveal d2" style="font-size:.95rem; color:var(--muted); line-height:1.85; margin-bottom: 1.5rem;">
+                    Studio <strong>Fashion Design</strong> all'Accademia di Belle Arti di Catania — <strong>ABACT</strong> (abactmoda). Un percorso che unisce creatività, progettazione e cultura della moda in un contesto unico nel sud Italia.
+                </p>
+                <p class="reveal d3" style="font-size:.95rem; color:var(--muted); line-height:1.85; margin-bottom: 2rem;">
+                    Ogni giorno imparo a guardare l'abbigliamento non solo come estetica, ma come linguaggio. E nel frattempo vivo — tra un progetto e un viaggio.
+                </p>
+                <div class="tags reveal d4">
+                    <span class="tag">Fashion Design</span>
+                    <span class="tag">ABACT</span>
+                    <span class="tag">Catania</span>
+                    <span class="tag">Accademia Belle Arti</span>
+                    <span class="tag">Moda Italiana</span>
+                </div>
+            </div>
+            <div class="reveal d1" style="position: relative;">
+                <div style="background: white; border-radius: 24px; padding: 2.5rem; border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(180,100,80,0.08);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🎓</div>
+                    <div style="font-family: 'Cormorant Garant', serif; font-size: 1.6rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem;">ABACT</div>
+                    <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); margin-bottom: 1.25rem;">Accademia di Belle Arti di Catania</div>
+                    <div style="border-top: 1px solid var(--border); padding-top: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--muted);">
+                            <span style="color: var(--accent);">◆</span> Corso: <strong style="color: var(--text); font-weight:500;">Fashion Design</strong>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--muted);">
+                            <span style="color: var(--rose);">◆</span> Città: <strong style="color: var(--text); font-weight:500;">Catania, Sicilia</strong>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--muted);">
+                            <span style="color: var(--accent);">◆</span> Instagram: <a href="https://www.instagram.com/abactmoda/" target="_blank" style="color: var(--rose); text-decoration:none; font-weight:500;">@abactmoda</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── SOCIAL ── -->
+<section id="social">
+    <div class="container">
+        <div class="s-label reveal">Dove trovarmi</div>
+        <h2 class="s-title reveal d1">Seguimi sui<br>miei <em>social</em></h2>
+
+        <div class="social-grid">
+            <a href="https://www.instagram.com/lauraaprivitera/" target="_blank" class="social-card ig reveal">
+                <div class="social-icon">📷</div>
+                <div class="social-info">
+                    <div class="social-platform">Instagram</div>
+                    <div class="social-handle">@lauraaprivitera</div>
+                    <div class="social-count">809 follower · 9 post</div>
+                </div>
+                <div class="social-arrow">→</div>
+            </a>
+            <a href="https://www.tiktok.com/@laurapriviteraa" target="_blank" class="social-card tt reveal d1">
+                <div class="social-icon">🎵</div>
+                <div class="social-info">
+                    <div class="social-platform">TikTok</div>
+                    <div class="social-handle">@laurapriviteraa</div>
+                    <div class="social-count">Vieni a trovarmi!</div>
+                </div>
+                <div class="social-arrow">→</div>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="f-logo">lau<span>.</span></div>
+    <div class="f-copy">© 2026 Laura Privitera · Tutti i diritti riservati</div>
+    <div class="f-links">
+        <a href="https://www.instagram.com/lauraaprivitera/" target="_blank">Instagram</a>
+        <a href="https://www.tiktok.com/@laurapriviteraa" target="_blank">TikTok</a>
+    </div>
+</footer>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lbx" id="lbx" onclick="lbClose()">
+    <button class="lbx-close" onclick="lbClose()">✕</button>
+    <img id="lbxi" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
+<script>
+    // Nav
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 60), { passive: true });
+
+    // Reveal
+    const ro = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+    // Lightbox
+    function lb(src) {
+        document.getElementById('lbxi').src = src;
+        document.getElementById('lbx').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function lbClose() {
+        document.getElementById('lbx').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); });
+</script>
+</body>
+</html>
