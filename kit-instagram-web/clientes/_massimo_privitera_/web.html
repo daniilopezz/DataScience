@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Massimo Privitera — Fotografo. Geometrie di luce e silenzio.">
+    <!-- Actualizado: 2026-04-25 -->
     <meta name="theme-color" content="#080808">
     <title>Massimo Privitera — Fotografo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -759,6 +760,17 @@
             font-family: 'DM Mono', monospace;
         }
 
+        /* ─── SCROLL PROGRESS ─── */
+        #scrollProgress {
+            position: fixed;
+            top: 0; left: 0;
+            width: 0%;
+            height: 2px;
+            background: linear-gradient(to right, var(--accent-dark), var(--accent), var(--accent-light));
+            z-index: 9999;
+            transition: width 0.1s linear;
+        }
+
         /* ─── BACK TO TOP ─── */
         .back-to-top {
             position: fixed;
@@ -856,6 +868,8 @@
     </style>
 </head>
 <body>
+
+<div id="scrollProgress"></div>
 
 <!-- ── PRELOADER ── -->
 <div id="preloader">
@@ -1343,12 +1357,17 @@
         document.body.style.overflow = '';
     }
 
+    // ── SCROLL PROGRESS ──
+    const scrollProgress = qi('scrollProgress');
+
     // ── NAV SCROLL ──
     const nav = qi('nav');
     const backToTop = qi('backToTop');
     window.addEventListener('scroll', () => {
         nav.classList.toggle('scrolled', window.scrollY > 60);
         backToTop.classList.toggle('visible', window.scrollY > 400);
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        scrollProgress.style.width = (total > 0 ? (window.scrollY / total) * 100 : 0) + '%';
     }, { passive: true });
 
     // ── HERO PARALLAX ──
