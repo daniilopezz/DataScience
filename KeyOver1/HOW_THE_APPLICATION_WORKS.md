@@ -688,3 +688,6 @@ L'IsolationForest di sessione **impone gia implicitamente un limite di costo** p
 | 3 | Emilio Sardo | 10:00–18:00 | ~5 azioni | FVG, RHODENSE, PAPARDO, PULEJO |
 
 I modelli per utente sono essenziali perche ogni utente ha un modello di utilizzo realmente diverso.
+
+
+prueba automatizada?
