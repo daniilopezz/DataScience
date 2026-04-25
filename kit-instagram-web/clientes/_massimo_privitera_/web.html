@@ -682,6 +682,30 @@
             .metric + .metric::before { display: none; }
             footer { padding: 1.5rem; }
         }
+
+        /* ─── LANG SWITCHER ─── */
+        .lang-switcher {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+        }
+        .lang-btn {
+            background: none;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            padding: 0.22rem 0.42rem;
+            cursor: pointer;
+            font-size: 1.3rem;
+            line-height: 1;
+            transition: border-color 0.25s, background 0.25s, opacity 0.25s;
+            opacity: 0.4;
+        }
+        .lang-btn:hover { opacity: 0.85; }
+        .lang-btn.active {
+            border-color: rgba(201, 169, 110, 0.5);
+            opacity: 1;
+            background: rgba(201, 169, 110, 0.07);
+        }
     </style>
 </head>
 <body>
@@ -695,6 +719,10 @@
         <li><a href="#servizi">Servizi</a></li>
         <li><a href="#contatti">Contatti</a></li>
     </ul>
+    <div class="lang-switcher">
+        <button class="lang-btn active" id="btn-it" onclick="setLang('it')" title="Italiano">🇮🇹</button>
+        <button class="lang-btn" id="btn-es" onclick="setLang('es')" title="Español">🇪🇸</button>
+    </div>
 </nav>
 
 <!-- ── HERO ── -->
@@ -955,6 +983,179 @@
 </div>
 
 <script>
+    // ── LANGUAGE SWITCHER ──
+    const T = {
+      it: {
+        navChiSono:'Chi Sono', navPortfolio:'Portfolio', navServizi:'Servizi', navContatti:'Contatti',
+        heroEyebrow:'Fotografo — Italia',
+        heroH1:'Geometrie<br>di <em>luce</em><br>e silenzio',
+        heroSub:'Ogni scatto è un istante cristallizzato. Strade, architetture e paesaggi raccontati attraverso un obiettivo sensibile alla bellezza nascosta nel quotidiano.',
+        heroPill:'persone seguono questa storia',
+        scrollHint:'Scorri',
+        igCat:'📷 Fotografo · Agente Assicurativo',
+        igBio:'Fotografo con la passione per le strade, le geometrie e la luce.<br>Agente Assicurativo · <strong>Unipol Assicurazioni SpA</strong>',
+        igBtnContact:'Contatta',
+        statPost:'Post', statFollower:'Follower', statSeguiti:'Seguiti',
+        aboutLabel:'Chi Sono',
+        aboutTitle:'L\'uomo<br>dietro<br><em>l\'obiettivo</em>',
+        aboutP1:'Mi chiamo <strong>Massimo Privitera</strong>. Fotografo con una passione viscerale per le strade, le architetture e i paesaggi urbani. Con oltre <strong>2.371 scatti pubblicati</strong>, ogni fotografia è il racconto silenzioso di un istante che non ritorna.',
+        aboutP2:'Il mio sguardo si muove tra il bianco e nero più essenziale e la malinconia dei paesaggi costieri italiani. Geometrie, luci radenti, ombre lunghe: trovo bellezza nell\'ordinario, nella strada di ogni giorno, in ciò che molti guardano senza davvero vedere.',
+        aboutP3:'Professionalmente sono anche <strong>Agente Assicurativo</strong> presso <strong>Unipol Assicurazioni SpA</strong> — due mondi uniti dallo stesso rigore e dalla stessa attenzione al dettaglio.',
+        tags:['Street Photography','Bianco & Nero','Architettura','Paesaggio Urbano','Costa & Mare','Ritratto'],
+        metricScatti:'Scatti pubblicati', metricFollower:'Follower su Instagram', metricConnessioni:'Connessioni',
+        portfolioLabel:'Portfolio',
+        portfolioTitle:'Gli scatti<br>più recenti',
+        portfolioLink:'Vedi su Instagram →',
+        captions:['Geometrie urbane · Aprile 2026','La strada · Aprile 2026','Texture · Aprile 2026','Lungomare · Marzo 2026','Crepuscolo · Marzo 2026','Nebbia · Marzo 2026','Strade · Febbraio 2026','Inverno · Dicembre 2025','Paesaggio · Dicembre 2025','Luce · Dicembre 2025','Ombre · Dicembre 2025'],
+        serviziLabel:'Servizi',
+        serviziTitle:'Cosa posso<br>fare per te',
+        s1Name:'Fotografia Urbana',
+        s1Desc:'Strade, architetture e angoli nascosti delle città. Ogni scatto racconta l\'anima di un luogo con uno sguardo unico e irripetibile.',
+        s2Name:'Paesaggi & Natura',
+        s2Desc:'Dal mare al cielo, dalla nebbia all\'alba. La bellezza del paesaggio italiano attraverso un occhio attento alla luce e all\'atmosfera.',
+        s3Name:'Ritratti',
+        s3Desc:'Sessioni fotografiche individuali con uno stile autentico, ricercato ed essenziale. Catturiamo la tua vera essenza senza filtri.',
+        sPrice:'Contattami per il preventivo',
+        contattiLabel:'Contatti',
+        contattiTitle:'Parliamo del<br>tuo <em>progetto</em>',
+        contattiP:'Hai un\'idea, un servizio fotografico da realizzare o vuoi semplicemente un preventivo? Scrivimi — rispondo sempre con piacere.',
+        ctaEmail:'✉ Invia un\'email',
+        ctaInstagram:'📷 Instagram',
+        ctaLinkedin:'💼 LinkedIn',
+        footerCopy:'© 2026 Massimo Privitera · Tutti i diritti riservati',
+        fInstagram:'Instagram', fLinkedin:'LinkedIn', fEmail:'Email',
+      },
+      es: {
+        navChiSono:'Quién Soy', navPortfolio:'Portfolio', navServizi:'Servicios', navContatti:'Contacto',
+        heroEyebrow:'Fotógrafo — Italia',
+        heroH1:'Geometrías<br>de <em>luz</em><br>y silencio',
+        heroSub:'Cada disparo es un instante cristalizado. Calles, arquitecturas y paisajes narrados a través de un objetivo sensible a la belleza oculta en lo cotidiano.',
+        heroPill:'personas siguen esta historia',
+        scrollHint:'Desplaza',
+        igCat:'📷 Fotógrafo · Agente de Seguros',
+        igBio:'Fotógrafo apasionado por las calles, las geometrías y la luz.<br>Agente de Seguros · <strong>Unipol Assicurazioni SpA</strong>',
+        igBtnContact:'Contactar',
+        statPost:'Posts', statFollower:'Seguidores', statSeguiti:'Siguiendo',
+        aboutLabel:'Quién Soy',
+        aboutTitle:'El hombre<br>detrás<br><em>del objetivo</em>',
+        aboutP1:'Me llamo <strong>Massimo Privitera</strong>. Fotógrafo con una pasión visceral por las calles, las arquitecturas y los paisajes urbanos. Con más de <strong>2.371 disparos publicados</strong>, cada fotografía es el relato silencioso de un instante que no vuelve.',
+        aboutP2:'Mi mirada se mueve entre el blanco y negro más esencial y la melancolía de los paisajes costeros italianos. Geometrías, luces rasantes, sombras largas: encuentro belleza en lo ordinario, en la calle de cada día, en lo que muchos miran sin realmente ver.',
+        aboutP3:'Profesionalmente también soy <strong>Agente de Seguros</strong> en <strong>Unipol Assicurazioni SpA</strong> — dos mundos unidos por el mismo rigor y la misma atención al detalle.',
+        tags:['Street Photography','Blanco & Negro','Arquitectura','Paisaje Urbano','Costa & Mar','Retrato'],
+        metricScatti:'Disparos publicados', metricFollower:'Seguidores en Instagram', metricConnessioni:'Conexiones',
+        portfolioLabel:'Portfolio',
+        portfolioTitle:'Los disparos<br>más recientes',
+        portfolioLink:'Ver en Instagram →',
+        captions:['Geometrías urbanas · Abril 2026','La calle · Abril 2026','Texturas · Abril 2026','Paseo marítimo · Marzo 2026','Crepúsculo · Marzo 2026','Niebla · Marzo 2026','Calles · Febrero 2026','Invierno · Diciembre 2025','Paisaje · Diciembre 2025','Luz · Diciembre 2025','Sombras · Diciembre 2025'],
+        serviziLabel:'Servicios',
+        serviziTitle:'Qué puedo<br>hacer por ti',
+        s1Name:'Fotografía Urbana',
+        s1Desc:'Calles, arquitecturas y rincones escondidos de las ciudades. Cada disparo narra el alma de un lugar con una mirada única e irrepetible.',
+        s2Name:'Paisajes & Naturaleza',
+        s2Desc:'Del mar al cielo, de la niebla al alba. La belleza del paisaje italiano a través de un ojo atento a la luz y la atmósfera.',
+        s3Name:'Retratos',
+        s3Desc:'Sesiones fotográficas individuales con un estilo auténtico, cuidado y esencial. Capturamos tu verdadera esencia sin filtros.',
+        sPrice:'Contáctame para el presupuesto',
+        contattiLabel:'Contacto',
+        contattiTitle:'Hablemos de<br>tu <em>proyecto</em>',
+        contattiP:'¿Tienes una idea, un servicio fotográfico que realizar o simplemente quieres un presupuesto? Escríbeme — siempre respondo con gusto.',
+        ctaEmail:'✉ Enviar un email',
+        ctaInstagram:'📷 Instagram',
+        ctaLinkedin:'💼 LinkedIn',
+        footerCopy:'© 2026 Massimo Privitera · Todos los derechos reservados',
+        fInstagram:'Instagram', fLinkedin:'LinkedIn', fEmail:'Email',
+      }
+    };
+
+    function setLang(lang) {
+      const t = T[lang];
+      const q = s => document.querySelector(s);
+      const qa = s => Array.from(document.querySelectorAll(s));
+
+      // Nav
+      q('.nav-links a[href="#chi-sono"]').textContent = t.navChiSono;
+      q('.nav-links a[href="#portfolio"]').textContent = t.navPortfolio;
+      q('.nav-links a[href="#servizi"]').textContent = t.navServizi;
+      q('.nav-links a[href="#contatti"]').textContent = t.navContatti;
+
+      // Hero
+      q('.hero-eyebrow').textContent = t.heroEyebrow;
+      q('.hero-h1').innerHTML = t.heroH1;
+      q('.hero-sub').textContent = t.heroSub;
+      q('.hero-pill span').textContent = t.heroPill;
+      q('.scroll-hint span').textContent = t.scrollHint;
+
+      // IG Card
+      q('.ig-cat').textContent = t.igCat;
+      q('.ig-bio').innerHTML = t.igBio;
+      q('.ig-btns .ig-btn.primary').textContent = t.igBtnContact;
+      const sl = qa('.ig-stat-l');
+      if (sl[0]) sl[0].textContent = t.statPost;
+      if (sl[1]) sl[1].textContent = t.statFollower;
+      if (sl[2]) sl[2].textContent = t.statSeguiti;
+
+      // About
+      q('#chi-sono .s-label').textContent = t.aboutLabel;
+      q('#chi-sono .s-title').innerHTML = t.aboutTitle;
+      const aPs = qa('#chi-sono .about-copy p');
+      if (aPs[0]) aPs[0].innerHTML = t.aboutP1;
+      if (aPs[1]) aPs[1].innerHTML = t.aboutP2;
+      if (aPs[2]) aPs[2].innerHTML = t.aboutP3;
+      qa('#chi-sono .tag').forEach((tag, i) => { if (t.tags[i]) tag.textContent = t.tags[i]; });
+
+      // Metrics
+      const ml = qa('.metric-l');
+      if (ml[0]) ml[0].textContent = t.metricScatti;
+      if (ml[1]) ml[1].textContent = t.metricFollower;
+      if (ml[2]) ml[2].textContent = t.metricConnessioni;
+
+      // Portfolio
+      q('#portfolio .s-label').textContent = t.portfolioLabel;
+      q('#portfolio .s-title').innerHTML = t.portfolioTitle;
+      q('.portfolio-head a').textContent = t.portfolioLink;
+      qa('.p-caption').forEach((c, i) => { if (t.captions[i]) c.textContent = t.captions[i]; });
+
+      // Servizi
+      q('#servizi .s-label').textContent = t.serviziLabel;
+      q('#servizi .s-title').innerHTML = t.serviziTitle;
+      const cards = qa('.servizi-grid .s-card');
+      [[t.s1Name, t.s1Desc],[t.s2Name, t.s2Desc],[t.s3Name, t.s3Desc]].forEach(([name, desc], i) => {
+        if (cards[i]) {
+          cards[i].querySelector('.s-name').textContent = name;
+          cards[i].querySelector('.s-desc').textContent = desc;
+          cards[i].querySelector('.s-price').textContent = t.sPrice;
+        }
+      });
+
+      // Contatti
+      q('#contatti .s-label').textContent = t.contattiLabel;
+      q('#contatti .s-title').innerHTML = t.contattiTitle;
+      q('.contatti-wrap p').textContent = t.contattiP;
+      const ctas = qa('.cta-row .cta');
+      if (ctas[0]) ctas[0].textContent = t.ctaEmail;
+      if (ctas[1]) ctas[1].textContent = t.ctaInstagram;
+      if (ctas[2]) ctas[2].textContent = t.ctaLinkedin;
+
+      // Footer
+      q('.f-copy').textContent = t.footerCopy;
+      const fl = qa('.f-links a');
+      if (fl[0]) fl[0].textContent = t.fInstagram;
+      if (fl[1]) fl[1].textContent = t.fLinkedin;
+      if (fl[2]) fl[2].textContent = t.fEmail;
+
+      // State
+      document.documentElement.lang = lang;
+      document.getElementById('btn-it').classList.toggle('active', lang === 'it');
+      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
+      localStorage.setItem('massimo-lang', lang);
+    }
+
+    // Restore saved language preference
+    (function() {
+      const saved = localStorage.getItem('massimo-lang');
+      if (saved && saved !== 'it') setLang(saved);
+    })();
+
     // Nav scroll
     const nav = document.getElementById('nav');
     window.addEventListener('scroll', () => {

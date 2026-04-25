@@ -591,6 +591,30 @@
             .g-item:nth-child(1), .g-item:nth-child(4) { grid-column: span 1; }
             footer { flex-direction: column; gap: 1rem; text-align: center; padding: 1.75rem 1.5rem; }
         }
+
+        /* ─── LANG SWITCHER ─── */
+        .lang-switcher {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+        }
+        .lang-btn {
+            background: none;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            padding: 0.22rem 0.42rem;
+            cursor: pointer;
+            font-size: 1.3rem;
+            line-height: 1;
+            transition: border-color 0.25s, background 0.25s, opacity 0.25s;
+            opacity: 0.4;
+        }
+        .lang-btn:hover { opacity: 0.85; }
+        .lang-btn.active {
+            border-color: rgba(196, 122, 138, 0.5);
+            opacity: 1;
+            background: rgba(196, 122, 138, 0.08);
+        }
     </style>
 </head>
 <body>
@@ -605,6 +629,10 @@
         <li><a href="#accademia">Accademia</a></li>
         <li><a href="#social">Social</a></li>
     </ul>
+    <div class="lang-switcher">
+        <button class="lang-btn active" id="btn-it" onclick="setLang('it')" title="Italiano">🇮🇹</button>
+        <button class="lang-btn" id="btn-es" onclick="setLang('es')" title="Español">🇪🇸</button>
+    </div>
 </nav>
 
 <!-- ── HERO ── -->
@@ -941,6 +969,194 @@
         document.body.style.overflow = '';
     }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); });
+
+    // ── LANGUAGE SWITCHER ──
+    const T = {
+      it: {
+        navChiSono:'Chi Sono', navGallery:'Galleria', navPassioni:'Passioni', navAccademia:'Accademia', navSocial:'Social',
+        heroEyebrow:'Ciao, sono Lau',
+        heroH1:'Moda,<br>viaggi<br>e <em>stile</em>',
+        heroSub:'Studentessa di Fashion Design ad ABACT Catania, con la valigia sempre pronta e One Direction nelle cuffiette. Ogni giorno è un outfit, ogni viaggio è una storia.',
+        heroBadge2:'✈️ Viaggiatrice',
+        heroPill:'persone seguono questa storia',
+        scrollHint:'Scorri',
+        igCat:'🎓 Fashion Design · ✈️ Viaggiatrice',
+        igBio:'Studentessa di <strong>Fashion Design</strong> · ABACT Catania 🎓<br>Viaggiatrice, amante della moda e di tutto ciò che è bello.<br>One Direction & Louis Tomlinson 🎵',
+        igFollower:'Follower',
+        aboutLabel:'Chi Sono',
+        aboutTitle:'Fashion Design<br>e <em>passione vera</em>',
+        aboutP1:'Mi chiamo <strong>Laura</strong>, ma tutti mi chiamano <strong>Lau</strong>. Sono una studentessa di Fashion Design all\'<strong>ABACT</strong> — Accademia di Belle Arti di Catania — e la moda non è solo quello che studio: è il modo in cui vedo il mondo.',
+        aboutP2:'Il mio Instagram è la mia finestra sul mondo: outfit del giorno, tramonti sul mare, piazze di Siviglia e angoli nascosti d\'Italia. Ogni foto racconta un momento che non volevo lasciarsi scappare.',
+        aboutP3:'Cresciuta con <strong>Justin Bieber</strong> nelle cuffie e <strong>One Direction</strong> nel cuore — la musica è sempre stata la colonna sonora di ogni giornata.',
+        aboutTags:['Fashion Design','ABACT Catania','Viaggi','Street Style','Italia','Spagna','Fotografia','One Direction'],
+        galleryLabel:'Galleria',
+        galleryTitle:'I miei<br>scatti preferiti',
+        galleryLink:'Vedi su Instagram →',
+        captions:['Siviglia · Aprile 2026','Settembre 2025','Tramonto · Settembre 2025','Settembre 2024','Plaza de España · Siviglia','Estate 2024','Febbraio 2024'],
+        passioniLabel:'Le mie passioni',
+        passioniTitle:'Moda, musica<br>e <em>vita vera</em>',
+        passioniIntro:'Oltre i libri di Fashion Design ci sono i viaggi, la musica e quei momenti che finiscono su Instagram perché meritano di essere ricordati.',
+        p1Sub:'ABACT Catania · Il mio percorso',
+        p1Desc:'Studio Fashion Design all\'Accademia di Belle Arti di Catania. La moda non è solo estetica — è racconto, identità, cultura. Lo studio ogni giorno.',
+        p2Sub:'La band della mia vita',
+        p2Desc:'Cinque ragazzi, milioni di cuori spezzati. Da "What Makes You Beautiful" in poi non sono più stata la stessa. Directioner per sempre, nessuna eccezione.',
+        heartBadge:'Il mio preferito 💙',
+        p3Sub:'Il componente preferito · Artista Solista',
+        p3Desc:'La mia voce preferita di One Direction, poi anche da solista. <em>Walls</em>, <em>Faith in the Future</em>… la sua musica ha un\'autenticità rara.<br><br>Che dire — è semplicemente il migliore.',
+        accadLabel:'Dove Studio',
+        accadP1:'Studio <strong>Fashion Design</strong> all\'Accademia di Belle Arti di Catania — <strong>ABACT</strong> (abactmoda). Un percorso che unisce creatività, progettazione e cultura della moda in un contesto unico nel sud Italia.',
+        accadP2:'Ogni giorno imparo a guardare l\'abbigliamento non solo come estetica, ma come linguaggio. E nel frattempo vivo — tra un progetto e un viaggio.',
+        abactR0:'<span style="color:var(--accent)">◆</span> Corso: <strong style="color:var(--text);font-weight:500">Fashion Design</strong>',
+        abactR1:'<span style="color:var(--rose)">◆</span> Città: <strong style="color:var(--text);font-weight:500">Catania, Sicilia</strong>',
+        abactR2:'<span style="color:var(--accent)">◆</span> Instagram: <a href="https://www.instagram.com/abactmoda/" target="_blank" style="color:var(--rose);text-decoration:none;font-weight:500">@abactmoda</a>',
+        socialLabel:'Dove trovarmi',
+        socialTitle:'Seguimi sui<br>miei <em>social</em>',
+        igCount:'809 follower · 9 post',
+        ttCount:'Vieni a trovarmi!',
+        footerCopy:'© 2026 Laura Privitera · Tutti i diritti riservati',
+      },
+      es: {
+        navChiSono:'Quién Soy', navGallery:'Galería', navPassioni:'Pasiones', navAccademia:'Academia', navSocial:'Redes',
+        heroEyebrow:'Hola, soy Lau',
+        heroH1:'Moda,<br>viajes<br>y <em>estilo</em>',
+        heroSub:'Estudiante de Fashion Design en ABACT Catania, con la maleta siempre lista y One Direction en los auriculares. Cada día es un outfit, cada viaje es una historia.',
+        heroBadge2:'✈️ Viajera',
+        heroPill:'personas siguen esta historia',
+        scrollHint:'Desplaza',
+        igCat:'🎓 Fashion Design · ✈️ Viajera',
+        igBio:'Estudiante de <strong>Fashion Design</strong> · ABACT Catania 🎓<br>Viajera, amante de la moda y de todo lo que es bello.<br>One Direction & Louis Tomlinson 🎵',
+        igFollower:'Seguidores',
+        aboutLabel:'Quién Soy',
+        aboutTitle:'Fashion Design<br>y <em>pasión real</em>',
+        aboutP1:'Me llamo <strong>Laura</strong>, pero todos me llaman <strong>Lau</strong>. Soy estudiante de Fashion Design en la <strong>ABACT</strong> — Accademia di Belle Arti di Catania — y la moda no es solo lo que estudio: es la forma en que veo el mundo.',
+        aboutP2:'Mi Instagram es mi ventana al mundo: outfits del día, atardeceres en el mar, plazas de Sevilla y rincones escondidos de Italia. Cada foto cuenta un momento que no quería dejar escapar.',
+        aboutP3:'Crecí con <strong>Justin Bieber</strong> en los auriculares y <strong>One Direction</strong> en el corazón — la música siempre ha sido la banda sonora de cada día.',
+        aboutTags:['Fashion Design','ABACT Catania','Viajes','Street Style','Italia','España','Fotografía','One Direction'],
+        galleryLabel:'Galería',
+        galleryTitle:'Mis<br>fotos favoritas',
+        galleryLink:'Ver en Instagram →',
+        captions:['Sevilla · Abril 2026','Septiembre 2025','Atardecer · Septiembre 2025','Septiembre 2024','Plaza de España · Sevilla','Verano 2024','Febrero 2024'],
+        passioniLabel:'Mis pasiones',
+        passioniTitle:'Moda, música<br>y <em>vida real</em>',
+        passioniIntro:'Más allá de los libros de Fashion Design están los viajes, la música y esos momentos que acaban en Instagram porque merecen ser recordados.',
+        p1Sub:'ABACT Catania · Mi camino',
+        p1Desc:'Estudio Fashion Design en la Accademia di Belle Arti di Catania. La moda no es solo estética — es relato, identidad, cultura. La estudio cada día.',
+        p2Sub:'La banda de mi vida',
+        p2Desc:'Cinco chicos, millones de corazones rotos. Desde "What Makes You Beautiful" no he vuelto a ser la misma. Directioner para siempre, sin excepciones.',
+        heartBadge:'Mi favorito 💙',
+        p3Sub:'Mi componente favorito · Artista Solista',
+        p3Desc:'Mi voz favorita de One Direction, y también como solista. <em>Walls</em>, <em>Faith in the Future</em>… su música tiene una autenticidad poco común.<br><br>Qué decir — es simplemente el mejor.',
+        accadLabel:'Dónde Estudio',
+        accadP1:'Estudio <strong>Fashion Design</strong> en la Accademia di Belle Arti di Catania — <strong>ABACT</strong> (abactmoda). Un camino que une creatividad, diseño y cultura de la moda en un contexto único en el sur de Italia.',
+        accadP2:'Cada día aprendo a mirar la ropa no solo como estética, sino como lenguaje. Y mientras tanto vivo — entre un proyecto y un viaje.',
+        abactR0:'<span style="color:var(--accent)">◆</span> Curso: <strong style="color:var(--text);font-weight:500">Fashion Design</strong>',
+        abactR1:'<span style="color:var(--rose)">◆</span> Ciudad: <strong style="color:var(--text);font-weight:500">Catania, Sicilia</strong>',
+        abactR2:'<span style="color:var(--accent)">◆</span> Instagram: <a href="https://www.instagram.com/abactmoda/" target="_blank" style="color:var(--rose);text-decoration:none;font-weight:500">@abactmoda</a>',
+        socialLabel:'Dónde encontrarme',
+        socialTitle:'Sígueme en<br>mis <em>redes</em>',
+        igCount:'809 seguidores · 9 posts',
+        ttCount:'¡Ven a buscarme!',
+        footerCopy:'© 2026 Laura Privitera · Todos los derechos reservados',
+      }
+    };
+
+    function setLang(lang) {
+      const t = T[lang];
+      const q = s => document.querySelector(s);
+      const qa = s => Array.from(document.querySelectorAll(s));
+
+      // Nav
+      q('.nav-links a[href="#chi-sono"]').textContent = t.navChiSono;
+      q('.nav-links a[href="#gallery"]').textContent = t.navGallery;
+      q('.nav-links a[href="#passioni"]').textContent = t.navPassioni;
+      q('.nav-links a[href="#accademia"]').textContent = t.navAccademia;
+      q('.nav-links a[href="#social"]').textContent = t.navSocial;
+
+      // Hero
+      q('.hero-eyebrow').textContent = t.heroEyebrow;
+      q('.hero-h1').innerHTML = t.heroH1;
+      q('.hero-sub').textContent = t.heroSub;
+      const badges = qa('.hero-badge');
+      if (badges[2]) badges[2].textContent = t.heroBadge2;
+      q('.hero-pill span').textContent = t.heroPill;
+      q('.scroll-hint span').textContent = t.scrollHint;
+
+      // IG Card
+      q('.ig-cat').textContent = t.igCat;
+      q('.ig-bio').innerHTML = t.igBio;
+      const sl = qa('.ig-stat-l');
+      if (sl[1]) sl[1].textContent = t.igFollower;
+
+      // About
+      q('#chi-sono .s-label').textContent = t.aboutLabel;
+      q('#chi-sono .s-title').innerHTML = t.aboutTitle;
+      const aPs = qa('#chi-sono .about-copy p');
+      if (aPs[0]) aPs[0].innerHTML = t.aboutP1;
+      if (aPs[1]) aPs[1].innerHTML = t.aboutP2;
+      if (aPs[2]) aPs[2].innerHTML = t.aboutP3;
+      qa('#chi-sono .tag').forEach((tag, i) => { if (t.aboutTags[i]) tag.textContent = t.aboutTags[i]; });
+
+      // Gallery
+      q('#gallery .s-label').textContent = t.galleryLabel;
+      q('#gallery .s-title').innerHTML = t.galleryTitle;
+      q('.gallery-head a').textContent = t.galleryLink;
+      qa('.g-caption').forEach((c, i) => { if (t.captions[i]) c.textContent = t.captions[i]; });
+
+      // Passioni
+      q('#passioni .s-label').textContent = t.passioniLabel;
+      q('#passioni .s-title').innerHTML = t.passioniTitle;
+      const pIntro = q('#passioni .passioni-intro p');
+      if (pIntro) pIntro.textContent = t.passioniIntro;
+      const pcards = qa('.passioni-grid .passione-card');
+      if (pcards[0]) {
+        pcards[0].querySelector('.passione-sub').textContent = t.p1Sub;
+        pcards[0].querySelector('.passione-desc').textContent = t.p1Desc;
+      }
+      if (pcards[1]) {
+        pcards[1].querySelector('.passione-sub').textContent = t.p2Sub;
+        pcards[1].querySelector('.passione-desc').textContent = t.p2Desc;
+      }
+      if (pcards[2]) {
+        pcards[2].querySelector('.heart-badge').textContent = t.heartBadge;
+        pcards[2].querySelector('.passione-sub').textContent = t.p3Sub;
+        pcards[2].querySelector('.passione-desc').innerHTML = t.p3Desc;
+      }
+
+      // Accademia
+      q('#accademia .s-label').textContent = t.accadLabel;
+      const accadPs = qa('#accademia p');
+      if (accadPs[0]) accadPs[0].innerHTML = t.accadP1;
+      if (accadPs[1]) accadPs[1].innerHTML = t.accadP2;
+      const abactCol = q('#accademia [style*="flex-direction: column"]');
+      if (abactCol && abactCol.children.length >= 3) {
+        abactCol.children[0].innerHTML = t.abactR0;
+        abactCol.children[1].innerHTML = t.abactR1;
+        abactCol.children[2].innerHTML = t.abactR2;
+      }
+
+      // Social
+      q('#social .s-label').textContent = t.socialLabel;
+      q('#social .s-title').innerHTML = t.socialTitle;
+      const igCount = q('.social-card.ig .social-count');
+      const ttCount = q('.social-card.tt .social-count');
+      if (igCount) igCount.textContent = t.igCount;
+      if (ttCount) ttCount.textContent = t.ttCount;
+
+      // Footer
+      q('.f-copy').textContent = t.footerCopy;
+
+      // State
+      document.documentElement.lang = lang;
+      document.getElementById('btn-it').classList.toggle('active', lang === 'it');
+      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
+      localStorage.setItem('laura-lang', lang);
+    }
+
+    // Restore saved language preference
+    (function() {
+      const saved = localStorage.getItem('laura-lang');
+      if (saved && saved !== 'it') setLang(saved);
+    })();
 </script>
 </body>
 </html>
